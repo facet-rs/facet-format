@@ -1107,7 +1107,6 @@ dependencies = [
  "cranelift",
  "cranelift-jit",
  "cranelift-module",
- "cranelift-native",
  "facet-core",
  "facet-dessert 0.44.1",
  "facet-path",
@@ -1412,7 +1411,6 @@ dependencies = [
  "serde_json",
  "toml",
  "toml_parser",
- "toml_writer",
  "zmij",
 ]
 
