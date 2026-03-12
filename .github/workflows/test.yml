@@ -111,9 +111,8 @@ jobs:
 
       - uses: Swatinem/rust-cache@v2
 
-      - uses: taiki-e/install-action@v2
-        with:
-          tool: cargo-reedme
+      - name: Install cargo-reedme
+        run: cargo install cargo-reedme --version 0.6.1 --locked
 
       - uses: taiki-e/install-action@v2
         with:
