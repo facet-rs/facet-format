@@ -1,0 +1,19 @@
+[workspace]
+members = [
+  "facet-value-format",
+]
+resolver = "3"
+
+[workspace.package]
+version = "0.44.1"
+edition = "2024"
+rust-version = "1.90"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/facet-rs/facet-format"
+
+[workspace.dependencies]
+facet = { path = "../facet/facet" }
+facet-core = { path = "../facet/facet-core" }
+facet-format = { path = "../facet/facet-format" }
+facet-reflect = { path = "../facet/facet-reflect" }
+facet-value = { path = "../facet/facet-value" }
