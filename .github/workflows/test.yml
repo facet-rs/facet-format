@@ -9,7 +9,7 @@ on:
 
 jobs:
   test-linux:
-    runs-on: ubuntu-latest
+    runs-on: depot-ubuntu-24.04-32
     env:
       PROPTEST_CASES: 0
     steps:
@@ -43,7 +43,7 @@ jobs:
           fail_ci_if_error: false
 
   miri:
-    runs-on: ubuntu-latest
+    runs-on: depot-ubuntu-24.04-32
     steps:
       - uses: actions/checkout@v6
 
@@ -65,7 +65,7 @@ jobs:
         run: just miri-json
 
   msrv:
-    runs-on: ubuntu-latest
+    runs-on: depot-ubuntu-24.04-16
     steps:
       - uses: actions/checkout@v6
 
@@ -85,7 +85,7 @@ jobs:
         run: just msrv
 
   docs:
-    runs-on: ubuntu-latest
+    runs-on: depot-ubuntu-24.04-16
     steps:
       - uses: actions/checkout@v6
 
@@ -103,7 +103,7 @@ jobs:
         run: just docs
 
   readme:
-    runs-on: ubuntu-latest
+    runs-on: depot-ubuntu-24.04-4
     steps:
       - uses: actions/checkout@v6
 
@@ -124,7 +124,7 @@ jobs:
           just reedme-check
 
   lockfile:
-    runs-on: ubuntu-latest
+    runs-on: depot-ubuntu-24.04-4
     steps:
       - uses: actions/checkout@v6
 
@@ -141,7 +141,7 @@ jobs:
 
   semver-checks:
     if: github.event_name == 'pull_request' || github.event_name == 'merge_group'
-    runs-on: ubuntu-latest
+    runs-on: depot-ubuntu-24.04-16
     permissions:
       contents: read
     steps:
@@ -158,7 +158,7 @@ jobs:
           verbose: true
 
   test-macos:
-    runs-on: macos-latest
+    runs-on: depot-macos-15
     env:
       PROPTEST_CASES: 0
     steps:
@@ -178,7 +178,7 @@ jobs:
         run: cargo nextest run --workspace
 
   test-windows:
-    runs-on: windows-latest
+    runs-on: depot-windows-2025-32
     env:
       PROPTEST_CASES: 0
     steps:
