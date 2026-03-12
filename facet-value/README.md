@@ -6,6 +6,40 @@
 [![MIT/Apache-2.0 licensed](https://img.shields.io/crates/l/facet-value.svg)](./LICENSE)
 [![Discord](https://img.shields.io/discord/1379550208551026748?logo=discord&label=discord)](https://discord.gg/JhD7CwCJ8F)
 
+<!-- cargo-reedme: start -->
+
+<!-- cargo-reedme: info-start
+
+    Do not edit this region by hand
+    ===============================
+
+    This region was generated from Rust documentation comments by `cargo-reedme` using this command:
+
+        cargo +nightly reedme --workspace
+
+    for more info: https://github.com/nik-rev/cargo-reedme
+
+cargo-reedme: info-end -->
+
+`facet-value` provides a memory-efficient dynamic value type for representing
+structured data similar to JSON, but with added support for binary data and datetime.
+
+## Features
+
+- **Pointer-sized `Value` type**: The main `Value` type is exactly one pointer in size
+- **Eight value types**: Null, Bool, Number, String, Bytes, Array, Object, DateTime
+- **`no_std` compatible**: Works with just `alloc`, no standard library required
+- **Bytes support**: First-class support for binary data (useful for MessagePack, CBOR, etc.)
+- **DateTime support**: First-class support for temporal data (useful for TOML, YAML, etc.)
+
+## Design
+
+`Value` uses a tagged pointer representation with 8-byte alignment, giving us 3 tag bits
+to distinguish between value types. Inline values (null, true, false) don’t require
+heap allocation.
+
+<!-- cargo-reedme: end -->
+
 # facet-value
 
 A memory-efficient dynamic value type for representing structured data, with support for bytes.
@@ -15,14 +49,14 @@ A memory-efficient dynamic value type for representing structured data, with sup
 - **Pointer-sized**: `Value` is exactly one pointer in size using tagged pointers
 - **Rich type support**: Null, Bool, Number, String, Bytes, Array, Object, DateTime
 - **Typed extraction**: Convert from `Value` into any type implementing `Facet`
-- **Companion serializer**: Use `facet-value-format` to serialize typed values into `Value`
+- **Companion serializer**: Use `facet-format` to serialize typed values into `Value`
 
 ## Example
 
 ```rust
 use facet::Facet;
 use facet_value::{Value, from_value};
-use facet_value_format::to_value;
+use facet_format::to_value;
 
 #[derive(Debug, Facet, PartialEq)]
 struct Person {
