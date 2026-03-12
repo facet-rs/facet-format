@@ -29,10 +29,11 @@ jobs:
 
       - name: Run tests with coverage
         run: |
-          cargo llvm-cov --no-report nextest --workspace
-          cargo llvm-cov --no-report --doc --workspace
+          rustup toolchain install nightly
+          cargo +nightly llvm-cov --no-report nextest --workspace --features facet-json/ci
+          cargo +nightly llvm-cov --no-report --doc --workspace
           mkdir -p coverage
-          cargo llvm-cov report --doctests --lcov --output-path coverage/lcov.info
+          cargo +nightly llvm-cov report --doctests --lcov --output-path coverage/lcov.info
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v5
@@ -56,6 +57,10 @@ jobs:
         with:
           tool: cargo-nextest
 
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: just
+
       - name: Run Miri
         run: just miri-json
 
@@ -71,6 +76,10 @@ jobs:
       - uses: taiki-e/install-action@v2
         with:
           tool: cargo-hack
+
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: just
 
       - name: Check MSRV
         run: just msrv
@@ -102,8 +111,9 @@ jobs:
 
       - uses: Swatinem/rust-cache@v2
 
-      - name: Install cargo-reedme
-        run: cargo install cargo-reedme --locked
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-reedme
 
       - uses: taiki-e/install-action@v2
         with:
