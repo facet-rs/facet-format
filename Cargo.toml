@@ -27,14 +27,15 @@ license = "MIT OR Apache-2.0"
 repository = "https://github.com/facet-rs/facet-format"
 
 [workspace.dependencies]
-facet = { path = "../facet/facet" }
-facet-core = { path = "../facet/facet-core" }
-facet-path = { path = "../facet/facet-path" }
-facet-pretty = { path = "../facet/facet-pretty" }
-facet-reflect = { path = "../facet/facet-reflect" }
-facet-solver = { path = "../facet/facet-solver" }
-facet-testhelpers = { path = "../facet/facet-testhelpers" }
-facet-value = { path = "../facet/facet-value" }
+facet = { version = "=0.44.1", default-features = false, features = ["std"] }
+facet-core = { version = "=0.44.1", default-features = false, features = ["alloc"] }
+facet-default = { version = "=0.44.1", default-features = false }
+facet-path = { version = "=0.44.1", default-features = false, features = ["alloc"] }
+facet-pretty = { version = "=0.44.1", default-features = false, features = ["alloc"] }
+facet-reflect = { version = "=0.44.1", default-features = false, features = ["alloc"] }
+facet-solver = { version = "=0.44.1", default-features = false, features = ["alloc", "suggestions"] }
+facet-testhelpers = { version = "=0.44.1", default-features = false }
+facet-value = { version = "=0.44.1", default-features = false, features = ["std"] }
 facet-format = { path = "facet-format" }
 arborium = { version = "^2.4.5", default-features = false, features = ["lang-json"] }
 autocfg = "^1.5.0"

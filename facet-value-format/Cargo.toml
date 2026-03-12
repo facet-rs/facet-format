@@ -21,4 +21,4 @@ facet-reflect = { workspace = true }
 facet-value = { workspace = true }
 
 [dev-dependencies]
-facet = { workspace = true, features = ["all-impls", "doc"] }
+facet = { workspace = true, features = ["std", "all-impls", "doc"] }
