@@ -15,7 +15,7 @@ members = [
   "facet-json-schema",
   "facet-typescript",
   "facet-python",
-  "facet-value-format",
+  "facet-value",
 ]
 resolver = "3"
 
@@ -33,7 +33,10 @@ facet-default = { version = "=0.44.1", default-features = false }
 facet-path = { version = "=0.44.1", default-features = false, features = ["alloc"] }
 facet-pretty = { version = "=0.44.1", default-features = false, features = ["alloc"] }
 facet-reflect = { version = "=0.44.1", default-features = false, features = ["alloc"] }
-facet-solver = { version = "=0.44.1", default-features = false, features = ["alloc", "suggestions"] }
+facet-solver = { version = "=0.44.1", default-features = false, features = [
+  "alloc",
+  "suggestions",
+] }
 facet-testhelpers = { version = "=0.44.1", default-features = false }
 facet-value = { version = "=0.44.1", default-features = false, features = ["std"] }
 facet-format = { path = "facet-format", version = "=0.44.1" }

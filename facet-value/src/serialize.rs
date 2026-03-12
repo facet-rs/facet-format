@@ -31,10 +31,12 @@ extern crate alloc;
 use alloc::string::String;
 use alloc::vec::Vec;
 
+use crate::{VArray, VNumber, VObject, VString, Value};
 use facet_core::Facet;
 use facet_format::{FormatSerializer, ScalarValue, SerializeError, serialize_root};
 use facet_reflect::Peek;
-use facet_value::{VArray, VNumber, VObject, VString, Value};
+
+use crate::VBytes;
 
 /// Error type for `Value` serialization.
 #[derive(Debug)]
@@ -166,7 +168,7 @@ impl FormatSerializer for ValueSerializer {
             ScalarValue::U128(n) => VString::new(&n.to_string()).into(),
             ScalarValue::F64(n) => VNumber::from_f64(n).map(Into::into).unwrap_or(Value::NULL),
             ScalarValue::Str(s) => VString::new(&s).into(),
-            ScalarValue::Bytes(b) => facet_value::VBytes::new(b.as_ref()).into(),
+            ScalarValue::Bytes(b) => VBytes::new(b.as_ref()).into(),
         };
         self.emit(value);
         Ok(())
@@ -270,7 +272,7 @@ mod tests {
 
     #[test]
     fn test_roundtrip_value() {
-        let original = facet_value::value!({
+        let original = crate::value!({
             "name": "Alice",
             "age": 30,
             "active": true
