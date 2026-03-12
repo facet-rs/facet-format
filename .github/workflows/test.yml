@@ -119,7 +119,9 @@ jobs:
           tool: just
 
       - name: Check generated READMEs
-        run: just reedme-check
+        run: |
+          rustup toolchain install nightly
+          just reedme-check
 
   lockfile:
     runs-on: ubuntu-latest
