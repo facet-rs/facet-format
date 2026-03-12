@@ -1,5 +1,20 @@
 [workspace]
 members = [
+  "facet-dessert",
+  "facet-format",
+  "facet-json",
+  "facet-json-classics",
+  "facet-postcard",
+  "facet-msgpack",
+  "facet-toml",
+  "facet-yaml",
+  "facet-format-suite",
+  "facet-asn1",
+  "facet-csv",
+  "facet-xdr",
+  "facet-json-schema",
+  "facet-typescript",
+  "facet-python",
   "facet-value-format",
 ]
 resolver = "3"
@@ -14,6 +29,66 @@ repository = "https://github.com/facet-rs/facet-format"
 [workspace.dependencies]
 facet = { path = "../facet/facet" }
 facet-core = { path = "../facet/facet-core" }
-facet-format = { path = "../facet/facet-format" }
+facet-path = { path = "../facet/facet-path" }
+facet-pretty = { path = "../facet/facet-pretty" }
 facet-reflect = { path = "../facet/facet-reflect" }
+facet-solver = { path = "../facet/facet-solver" }
+facet-testhelpers = { path = "../facet/facet-testhelpers" }
 facet-value = { path = "../facet/facet-value" }
+facet-format = { path = "facet-format" }
+arborium = { version = "^2.4.5", default-features = false, features = ["lang-json"] }
+autocfg = "^1.5.0"
+bolero = "^0.13.4"
+bytes = { version = "^1.11.0", default-features = false }
+bytestring = { version = "^1.4.0", default-features = false }
+camino = "^1.2.1"
+compact_str = { version = "^0.9.0", default-features = false }
+chrono = { version = "^0.4.42", default-features = false, features = ["alloc"] }
+divan = "^0.1.21"
+eyre = "^0.6.12"
+http = "^1.4.0"
+indexmap = { version = "^2.12.1", default-features = false }
+indoc = "^2.0.7"
+insta = "^1.44.3"
+jiff = "^0.2.16"
+log = { version = "^0.4.29", features = ["std"] }
+owo-colors = "^4.2.3"
+proc-macro2 = "1"
+quote = "1"
+serde = { version = "^1.0.228", default-features = false, features = ["alloc", "derive"] }
+serde_json = { version = "^1.0.145", features = ["alloc"] }
+smartstring = { version = "^1.0.1", default-features = false }
+smol_str = { version = "^0.3.4", default-features = false }
+static_assertions = "^1.1.0"
+strsim = "0.11"
+tempfile = "^3.23.0"
+time = { version = "^0.3.44", features = ["formatting", "macros", "parsing"] }
+tokio = { version = "^1.48.0", default-features = false, features = ["macros"] }
+tracing = { version = "^0.1.43", default-features = false, features = ["std"] }
+tracing-subscriber = { version = "^0.3.22", default-features = false, features = ["fmt", "std"] }
+ulid = "^1.2.1"
+unsynn = "^0.3.0"
+uuid = "^1.19.0"
+rust_decimal = { version = "^1.38.0", default-features = false, features = ["std"] }
+smallvec = { version = "^1.15", default-features = false }
+iddqd = { version = "^0.3", default-features = false }
+libtest-mimic = "^0.8.1"
+
+[workspace.lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ["cfg(facet_no_doc)", "cfg(kani)"] }
+
+[workspace.lints.clippy]
+disallowed_methods = "deny"
+
+[profile.profiling]
+inherits = "release"
+debug = "line-tables-only"
+
+[profile.fuzz]
+inherits = "dev"
+opt-level = 3
+incremental = false
+codegen-units = 1
+
+[profile.dev.package.backtrace]
+opt-level = 3
