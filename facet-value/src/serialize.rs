@@ -1,4 +1,4 @@
-//! Serialize any type implementing `Facet` into a [`facet_value::Value`].
+//! Serialize any type implementing `Facet` into a [`Value`].
 //!
 //! This crate hosts the adapter between `facet-format`'s event serializer model
 //! and `facet-value`'s dynamic `Value` type.
@@ -8,7 +8,7 @@
 //! ```
 //! use facet::Facet;
 //! use facet_value::{Value, from_value};
-//! use facet_value_format::to_value;
+//! use facet_format::to_value;
 //!
 //! #[derive(Debug, Facet, PartialEq)]
 //! struct Person {
