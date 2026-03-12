@@ -57,8 +57,7 @@ impl core::fmt::Display for ToValueError {
     }
 }
 
-#[cfg(feature = "std")]
-impl std::error::Error for ToValueError {}
+impl core::error::Error for ToValueError {}
 
 /// Serializer that builds a [`Value`] from a sequence of format events.
 struct ValueSerializer {
