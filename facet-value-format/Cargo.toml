@@ -10,6 +10,11 @@ keywords = ["facet", "value", "serialization", "dynamic"]
 categories = ["encoding", "data-structures"]
 homepage = "https://facet.rs"
 
+[package.metadata]
+
+[package.metadata."docs.rs"]
+rustdoc-args = ["--html-in-header", "arborium-header.html"]
+
 [features]
 default = ["std"]
 std = []
