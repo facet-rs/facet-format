@@ -1040,7 +1040,7 @@ dependencies = [
 
 [[package]]
 name = "facet-asn1"
-version = "0.44.4"
+version = "0.44.5"
 dependencies = [
  "facet",
  "facet-core",
@@ -1087,7 +1087,7 @@ dependencies = [
 
 [[package]]
 name = "facet-csv"
-version = "0.44.4"
+version = "0.44.5"
 dependencies = [
  "facet",
  "facet-core",
@@ -1108,7 +1108,7 @@ dependencies = [
 
 [[package]]
 name = "facet-dessert"
-version = "0.44.4"
+version = "0.44.5"
 dependencies = [
  "facet-core",
  "facet-reflect",
@@ -1116,7 +1116,7 @@ dependencies = [
 
 [[package]]
 name = "facet-format"
-version = "0.44.4"
+version = "0.44.5"
 dependencies = [
  "ariadne",
  "cranelift",
@@ -1166,7 +1166,7 @@ dependencies = [
 
 [[package]]
 name = "facet-json"
-version = "0.44.4"
+version = "0.44.5"
 dependencies = [
  "axum-core",
  "compact_str",
@@ -1204,7 +1204,7 @@ dependencies = [
 
 [[package]]
 name = "facet-json-schema"
-version = "0.44.4"
+version = "0.44.5"
 dependencies = [
  "facet",
  "facet-core",
@@ -1259,7 +1259,7 @@ dependencies = [
 
 [[package]]
 name = "facet-msgpack"
-version = "0.44.4"
+version = "0.44.5"
 dependencies = [
  "axum-core",
  "divan",
@@ -1289,7 +1289,7 @@ dependencies = [
 
 [[package]]
 name = "facet-postcard"
-version = "0.44.4"
+version = "0.44.5"
 dependencies = [
  "axum-core",
  "bytes",
@@ -1335,7 +1335,7 @@ dependencies = [
 
 [[package]]
 name = "facet-python"
-version = "0.44.4"
+version = "0.44.5"
 dependencies = [
  "facet",
  "facet-core",
@@ -1392,7 +1392,7 @@ dependencies = [
 
 [[package]]
 name = "facet-toml"
-version = "0.44.4"
+version = "0.44.5"
 dependencies = [
  "axum-core",
  "divan",
@@ -1418,7 +1418,7 @@ dependencies = [
 
 [[package]]
 name = "facet-typescript"
-version = "0.44.4"
+version = "0.44.5"
 dependencies = [
  "chrono",
  "facet",
@@ -1428,7 +1428,7 @@ dependencies = [
 
 [[package]]
 name = "facet-value"
-version = "0.44.4"
+version = "0.44.5"
 dependencies = [
  "bolero",
  "divan",
@@ -1444,7 +1444,7 @@ dependencies = [
 
 [[package]]
 name = "facet-xdr"
-version = "0.44.4"
+version = "0.44.5"
 dependencies = [
  "facet",
  "facet-core",
@@ -1455,7 +1455,7 @@ dependencies = [
 
 [[package]]
 name = "facet-yaml"
-version = "0.44.4"
+version = "0.44.5"
 dependencies = [
  "axum-core",
  "datatest-stable",
