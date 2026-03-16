@@ -1044,7 +1044,7 @@ version = "0.44.2"
 dependencies = [
  "facet",
  "facet-core",
- "facet-format 0.44.2",
+ "facet-format",
  "facet-format-suite",
  "facet-reflect",
  "facet-testhelpers",
@@ -1091,7 +1091,7 @@ version = "0.44.2"
 dependencies = [
  "facet",
  "facet-core",
- "facet-format 0.44.2",
+ "facet-format",
  "facet-reflect",
  "itoa",
  "zmij",
@@ -1108,33 +1108,10 @@ dependencies = [
 
 [[package]]
 name = "facet-dessert"
-version = "0.44.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "64092a2ececf59431c1b98561ba12e308c20185185fedc8c5396468e87573435"
-dependencies = [
- "facet-core",
- "facet-reflect",
-]
-
-[[package]]
-name = "facet-dessert"
 version = "0.44.2"
 dependencies = [
  "facet-core",
  "facet-reflect",
-]
-
-[[package]]
-name = "facet-format"
-version = "0.44.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9b93a20a96d7dc1ab469896487f26f5c467b5b28c0448b4419fe8497ed1c6e5c"
-dependencies = [
- "facet-core",
- "facet-dessert 0.44.1",
- "facet-path",
- "facet-reflect",
- "facet-solver",
 ]
 
 [[package]]
@@ -1146,7 +1123,7 @@ dependencies = [
  "cranelift-jit",
  "cranelift-module",
  "facet-core",
- "facet-dessert 0.44.2",
+ "facet-dessert",
  "facet-path",
  "facet-reflect",
  "facet-solver",
@@ -1169,7 +1146,7 @@ dependencies = [
  "compact_str",
  "facet",
  "facet-pretty",
- "facet-value 0.44.1",
+ "facet-value",
  "iddqd",
  "indoc",
  "jiff",
@@ -1196,7 +1173,7 @@ dependencies = [
  "divan",
  "facet",
  "facet-core",
- "facet-format 0.44.2",
+ "facet-format",
  "facet-format-suite",
  "facet-json-classics",
  "facet-reflect",
@@ -1288,7 +1265,7 @@ dependencies = [
  "divan",
  "facet",
  "facet-core",
- "facet-format 0.44.2",
+ "facet-format",
  "facet-format-suite",
  "facet-json-classics",
  "facet-reflect",
@@ -1323,13 +1300,13 @@ dependencies = [
  "divan",
  "facet",
  "facet-core",
- "facet-format 0.44.2",
+ "facet-format",
  "facet-json",
  "facet-json-classics",
  "facet-path",
  "facet-reflect",
  "facet-testhelpers",
- "facet-value 0.44.1",
+ "facet-value",
  "http",
  "http-body-util",
  "jiff",
@@ -1421,12 +1398,12 @@ dependencies = [
  "divan",
  "facet",
  "facet-core",
- "facet-format 0.44.2",
+ "facet-format",
  "facet-format-suite",
  "facet-json-classics",
  "facet-reflect",
  "facet-testhelpers",
- "facet-value 0.44.1",
+ "facet-value",
  "http",
  "http-body-util",
  "indoc",
@@ -1451,25 +1428,13 @@ dependencies = [
 
 [[package]]
 name = "facet-value"
-version = "0.44.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "21f4cd189eca0104bff26ba3ebb45a33ff6d01288c289293efb4133c1d6feb4f"
-dependencies = [
- "facet-core",
- "facet-format 0.44.1",
- "facet-reflect",
- "indexmap",
-]
-
-[[package]]
-name = "facet-value"
 version = "0.44.2"
 dependencies = [
  "bolero",
  "divan",
  "facet",
  "facet-core",
- "facet-format 0.44.2",
+ "facet-format",
  "facet-reflect",
  "facet-testhelpers",
  "indexmap",
@@ -1483,7 +1448,7 @@ version = "0.44.2"
 dependencies = [
  "facet",
  "facet-core",
- "facet-format 0.44.2",
+ "facet-format",
  "facet-reflect",
  "xdr-codec",
 ]
@@ -1498,7 +1463,7 @@ dependencies = [
  "facet",
  "facet-core",
  "facet-default",
- "facet-format 0.44.2",
+ "facet-format",
  "facet-format-suite",
  "facet-json-classics",
  "facet-reflect",

@@ -27,6 +27,11 @@ license = "MIT OR Apache-2.0"
 repository = "https://github.com/facet-rs/facet-format"
 
 [workspace.dependencies]
+# internal deps
+facet-value = { path = "facet-value", version = "0.44", default-features = false, features = ["std"] }
+facet-format = { path = "facet-format", version = "0.44" }
+
+# external deps
 facet = { version = "0.44", default-features = false, features = ["std"] }
 facet-core = { version = "0.44", default-features = false, features = ["alloc"] }
 facet-default = { version = "0.44", default-features = false }
@@ -35,8 +40,6 @@ facet-pretty = { version = "0.44", default-features = false, features = ["alloc"
 facet-reflect = { version = "0.44", default-features = false, features = ["alloc"] }
 facet-solver = { version = "0.44", default-features = false, features = ["alloc", "suggestions"] }
 facet-testhelpers = { version = "0.44", default-features = false }
-facet-value = { version = "0.44", default-features = false, features = ["std"] }
-facet-format = { path = "facet-format", version = "0.44" }
 arborium = { version = "^2.4.5", default-features = false, features = ["lang-json"] }
 bolero = "^0.13.4"
 bytes = { version = "^1.11.0", default-features = false }
