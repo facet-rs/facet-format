@@ -127,7 +127,7 @@ version = "1.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "40c48f72fd53cd289104fc64099abca73db4166ad86ea0b4341abe65af83dadc"
 dependencies = [
- "windows-sys 0.60.2",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -138,7 +138,7 @@ checksum = "291e6a250ff86cd4a820112fb8898808a366d8f9f58ce16d1f538353ad55747d"
 dependencies = [
  "anstyle",
  "once_cell_polyfill",
- "windows-sys 0.60.2",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -969,7 +969,7 @@ checksum = "9f5b01c17f85ee988d832c40e549a64bd89ab2c9f8d8a613bdf5122ae507e294"
 dependencies = [
  "cfg-if",
  "libc",
- "windows-sys 0.59.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -1009,7 +1009,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "39cab71617ae0d63f51a36d69f866391735b51691dbda63cf6f96d042b63efeb"
 dependencies = [
  "libc",
- "windows-sys 0.59.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -1040,7 +1040,7 @@ dependencies = [
 
 [[package]]
 name = "facet-asn1"
-version = "0.44.3"
+version = "0.44.4"
 dependencies = [
  "facet",
  "facet-core",
@@ -1087,7 +1087,7 @@ dependencies = [
 
 [[package]]
 name = "facet-csv"
-version = "0.44.3"
+version = "0.44.4"
 dependencies = [
  "facet",
  "facet-core",
@@ -1108,7 +1108,7 @@ dependencies = [
 
 [[package]]
 name = "facet-dessert"
-version = "0.44.3"
+version = "0.44.4"
 dependencies = [
  "facet-core",
  "facet-reflect",
@@ -1116,7 +1116,7 @@ dependencies = [
 
 [[package]]
 name = "facet-format"
-version = "0.44.3"
+version = "0.44.4"
 dependencies = [
  "ariadne",
  "cranelift",
@@ -1136,7 +1136,7 @@ dependencies = [
 
 [[package]]
 name = "facet-format-suite"
-version = "0.44.3"
+version = "0.44.4"
 dependencies = [
  "arborium",
  "bytes",
@@ -1166,7 +1166,7 @@ dependencies = [
 
 [[package]]
 name = "facet-json"
-version = "0.44.3"
+version = "0.44.4"
 dependencies = [
  "axum-core",
  "compact_str",
@@ -1197,14 +1197,14 @@ dependencies = [
 
 [[package]]
 name = "facet-json-classics"
-version = "0.44.3"
+version = "0.44.4"
 dependencies = [
  "brotli",
 ]
 
 [[package]]
 name = "facet-json-schema"
-version = "0.44.3"
+version = "0.44.4"
 dependencies = [
  "facet",
  "facet-core",
@@ -1259,7 +1259,7 @@ dependencies = [
 
 [[package]]
 name = "facet-msgpack"
-version = "0.44.3"
+version = "0.44.4"
 dependencies = [
  "axum-core",
  "divan",
@@ -1280,16 +1280,16 @@ dependencies = [
 
 [[package]]
 name = "facet-path"
-version = "0.44.2"
+version = "0.44.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4caf2e28592caaa57e4ae3a5bcb1ce4cc84015ab7579eeeb496edf98f5f613ce"
+checksum = "77e7b83cb0de7c00d6e76f08d36b047d6cb9efc39e10744dbcf7a4a5a19c4903"
 dependencies = [
  "facet-core",
 ]
 
 [[package]]
 name = "facet-postcard"
-version = "0.44.3"
+version = "0.44.4"
 dependencies = [
  "axum-core",
  "bytes",
@@ -1324,9 +1324,9 @@ dependencies = [
 
 [[package]]
 name = "facet-pretty"
-version = "0.44.2"
+version = "0.44.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c80ee6d1e8e94ee292e9d48815b106dd8f895dc9d4d539c47c3d86e0e1100084"
+checksum = "03a210b495413ea90d6fb41977f5b5caae1d736620257b4a286c63a3a9afb689"
 dependencies = [
  "facet-core",
  "facet-reflect",
@@ -1335,7 +1335,7 @@ dependencies = [
 
 [[package]]
 name = "facet-python"
-version = "0.44.3"
+version = "0.44.4"
 dependencies = [
  "facet",
  "facet-core",
@@ -1344,9 +1344,9 @@ dependencies = [
 
 [[package]]
 name = "facet-reflect"
-version = "0.44.2"
+version = "0.44.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0eb9650fa888a651548679a3bc08aa7c829c003b8b5da248a8a6e4240d120d9c"
+checksum = "e9cc255bd928399489868fdddec09e69073d622432cc2b52cfa3c3a5d811305c"
 dependencies = [
  "facet-core",
  "facet-path",
@@ -1358,9 +1358,9 @@ dependencies = [
 
 [[package]]
 name = "facet-solver"
-version = "0.44.2"
+version = "0.44.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6f7e2b70397d74473f2dca484c42daf321c6814140f68556d32dd6057b873006"
+checksum = "b4d2427360875510d60267f4bb132f47aa4f5714896be9ca11c516f14542118d"
 dependencies = [
  "facet-core",
  "facet-reflect",
@@ -1369,9 +1369,9 @@ dependencies = [
 
 [[package]]
 name = "facet-testhelpers"
-version = "0.44.2"
+version = "0.44.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "11360857a8958f1552e1d20644983731cba104b2ae8cc393a4cc0b06ed511b5c"
+checksum = "9003d5bede62269bdc9d71708ab5c686e590a2d20aeb2efa1ba7c49e43651c9a"
 dependencies = [
  "color-backtrace",
  "facet-testhelpers-macros",
@@ -1382,9 +1382,9 @@ dependencies = [
 
 [[package]]
 name = "facet-testhelpers-macros"
-version = "0.44.2"
+version = "0.44.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1819b0dc798c2ce65552c4343267ad31f60dd27b655d3bd93102ec9f191cb1f3"
+checksum = "8d6e17dfa5fc4da066dbf46244a72e4e3233c901914b8d979f12a3967649b859"
 dependencies = [
  "quote",
  "unsynn",
@@ -1392,7 +1392,7 @@ dependencies = [
 
 [[package]]
 name = "facet-toml"
-version = "0.44.3"
+version = "0.44.4"
 dependencies = [
  "axum-core",
  "divan",
@@ -1418,7 +1418,7 @@ dependencies = [
 
 [[package]]
 name = "facet-typescript"
-version = "0.44.3"
+version = "0.44.4"
 dependencies = [
  "chrono",
  "facet",
@@ -1428,7 +1428,7 @@ dependencies = [
 
 [[package]]
 name = "facet-value"
-version = "0.44.3"
+version = "0.44.4"
 dependencies = [
  "bolero",
  "divan",
@@ -1444,7 +1444,7 @@ dependencies = [
 
 [[package]]
 name = "facet-xdr"
-version = "0.44.3"
+version = "0.44.4"
 dependencies = [
  "facet",
  "facet-core",
@@ -1455,7 +1455,7 @@ dependencies = [
 
 [[package]]
 name = "facet-yaml"
-version = "0.44.3"
+version = "0.44.4"
 dependencies = [
  "axum-core",
  "datatest-stable",
@@ -1886,7 +1886,7 @@ checksum = "3640c1c38b8e4e43584d8df18be5fc6b0aa314ce6ebf51b53313d4306cca8e46"
 dependencies = [
  "hermit-abi",
  "libc",
- "windows-sys 0.59.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -1919,7 +1919,7 @@ dependencies = [
  "portable-atomic",
  "portable-atomic-util",
  "serde_core",
- "windows-sys 0.59.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -2109,7 +2109,7 @@ version = "0.50.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7957b9740744892f114936ab4a57b3f487491bbeafaf8083688b16841a4240e5"
 dependencies = [
- "windows-sys 0.59.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -2606,7 +2606,7 @@ dependencies = [
  "errno",
  "libc",
  "linux-raw-sys",
- "windows-sys 0.59.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -2915,7 +2915,7 @@ dependencies = [
  "getrandom 0.4.2",
  "once_cell",
  "rustix",
- "windows-sys 0.59.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -3399,7 +3399,7 @@ version = "0.1.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c2a7b1c03c876122aa43f3020e6c3c3ee5c05081c9a00739faf7503aeba10d22"
 dependencies = [
- "windows-sys 0.59.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
