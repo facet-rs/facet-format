@@ -29,7 +29,7 @@ repository = "https://github.com/facet-rs/facet-format"
 [workspace.dependencies]
 facet = { version = "=0.44.1", default-features = false, features = ["std"] }
 facet-core = { version = "=0.44.1", default-features = false, features = ["alloc"] }
-facet-default = { version = "=0.44.1", default-features = false }
+facet-default = { version = "=0.44.2", default-features = false }
 facet-path = { version = "=0.44.1", default-features = false, features = ["alloc"] }
 facet-pretty = { version = "=0.44.1", default-features = false, features = ["alloc"] }
 facet-reflect = { version = "=0.44.1", default-features = false, features = ["alloc"] }
