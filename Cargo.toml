@@ -20,7 +20,7 @@ members = [
 resolver = "3"
 
 [workspace.package]
-version = "0.44.1"
+version = "0.44.2"
 edition = "2024"
 rust-version = "1.90"
 license = "MIT OR Apache-2.0"
@@ -39,7 +39,7 @@ facet-solver = { version = "=0.44.1", default-features = false, features = [
 ] }
 facet-testhelpers = { version = "=0.44.1", default-features = false }
 facet-value = { version = "=0.44.1", default-features = false, features = ["std"] }
-facet-format = { path = "facet-format", version = "=0.44.1" }
+facet-format = { path = "facet-format", version = "=0.44.2" }
 arborium = { version = "^2.4.5", default-features = false, features = ["lang-json"] }
 bolero = "^0.13.4"
 bytes = { version = "^1.11.0", default-features = false }
