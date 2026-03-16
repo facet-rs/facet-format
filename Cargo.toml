@@ -20,7 +20,6 @@ members = [
 resolver = "3"
 
 [workspace.package]
-version = "0.44.4"
 edition = "2024"
 rust-version = "1.90"
 license = "MIT OR Apache-2.0"
@@ -28,7 +27,9 @@ repository = "https://github.com/facet-rs/facet-format"
 
 [workspace.dependencies]
 # internal deps
-facet-value = { path = "facet-value", version = "0.44", default-features = false, features = ["std"] }
+facet-value = { path = "facet-value", version = "0.44", default-features = false, features = [
+  "std",
+] }
 facet-format = { path = "facet-format", version = "0.44" }
 
 # external deps
