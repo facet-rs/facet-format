@@ -57,10 +57,6 @@ name = "facet-python"
 changelog_path = "CHANGELOG.md"
 
 [[package]]
-name = "facet-value-format"
-changelog_path = "CHANGELOG.md"
-
-[[package]]
 name = "facet-json-classics"
 release = false
 publish = false
