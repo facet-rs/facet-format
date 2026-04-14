@@ -33,8 +33,8 @@ facet-value = { path = "facet-value", version = "0.44", default-features = false
 facet-format = { path = "facet-format", version = "0.44" }
 
 # external deps
-facet = { version = "0.44", default-features = false, features = ["std"] }
-facet-core = { version = "0.44", default-features = false, features = ["alloc"] }
+facet = { version = "0.45", default-features = false, features = ["std"] }
+facet-core = { version = "0.45", default-features = false, features = ["alloc"] }
 facet-default = { version = "0.44", default-features = false }
 facet-path = { version = "0.44", default-features = false, features = ["alloc"] }
 facet-pretty = { version = "0.44", default-features = false, features = ["alloc"] }
