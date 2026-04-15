@@ -28,7 +28,7 @@ facet-solver = { workspace = true }
 # JIT compilation (optional)
 cranelift = { version = "0.128", optional = true }
 cranelift-jit = { version = "0.128", optional = true }
-cranelift-module = { version = "0.128", optional = true }
+cranelift-module = { version = "0.130", optional = true }
 parking_lot = { version = "0.12", optional = true }
 museair = { version = "0.4", optional = true }
 libc = { version = "0.2", optional = true }
