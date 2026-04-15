@@ -27,20 +27,20 @@ repository = "https://github.com/facet-rs/facet-format"
 
 [workspace.dependencies]
 # internal deps
-facet-value = { path = "facet-value", version = "0.44", default-features = false, features = [
+facet-value = { path = "facet-value", version = "0.46", default-features = false, features = [
   "std",
 ] }
-facet-format = { path = "facet-format", version = "0.44" }
+facet-format = { path = "facet-format", version = "0.46" }
 
 # external deps
-facet = { version = "0.45", default-features = false, features = ["std"] }
-facet-core = { version = "0.45", default-features = false, features = ["alloc"] }
-facet-default = { version = "0.44", default-features = false }
-facet-path = { version = "0.44", default-features = false, features = ["alloc"] }
-facet-pretty = { version = "0.44", default-features = false, features = ["alloc"] }
-facet-reflect = { version = "0.44", default-features = false, features = ["alloc"] }
-facet-solver = { version = "0.44", default-features = false, features = ["alloc", "suggestions"] }
-facet-testhelpers = { version = "0.44", default-features = false }
+facet = { version = "0.46", default-features = false, features = ["std"] }
+facet-core = { version = "0.46", default-features = false, features = ["alloc"] }
+facet-default = { version = "0.46", default-features = false }
+facet-path = { version = "0.46", default-features = false, features = ["alloc"] }
+facet-pretty = { version = "0.46", default-features = false, features = ["alloc"] }
+facet-reflect = { version = "0.46", default-features = false, features = ["alloc"] }
+facet-solver = { version = "0.46", default-features = false, features = ["alloc", "suggestions"] }
+facet-testhelpers = { version = "0.46", default-features = false }
 arborium = { version = "^2.4.5", default-features = false, features = ["lang-json"] }
 bolero = "^0.13.4"
 bytes = { version = "^1.11.0", default-features = false }
