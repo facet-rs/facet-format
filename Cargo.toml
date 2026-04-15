@@ -30,7 +30,7 @@ repository = "https://github.com/facet-rs/facet-format"
 facet-value = { path = "facet-value", version = "0.46", default-features = false, features = [
   "std",
 ] }
-facet-format = { path = "facet-format", version = "0.46" }
+facet-format = { path = "facet-format", version = "0.47" }
 
 # external deps
 facet = { version = "0.46", default-features = false, features = ["std"] }
