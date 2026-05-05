@@ -64,7 +64,7 @@ tracing = { version = "^0.1.43", default-features = false, features = ["std"] }
 ulid = "^1.2.1"
 uuid = "^1.19.0"
 rust_decimal = { version = "^1.38.0", default-features = false, features = ["std"] }
-iddqd = { version = "^0.3", default-features = false }
+iddqd = { version = "^0.4.0", default-features = false }
 libtest-mimic = "^0.8.1"
 
 [workspace.lints.rust]

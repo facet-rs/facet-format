@@ -853,7 +853,7 @@ dependencies = [
  "chrono",
  "compact_str",
  "const-fnv1a-hash",
- "iddqd",
+ "iddqd 0.3.17",
  "impls",
  "indexmap",
  "jiff",
@@ -931,7 +931,7 @@ dependencies = [
  "facet",
  "facet-pretty",
  "facet-value",
- "iddqd",
+ "iddqd 0.4.0",
  "indoc",
  "jiff",
  "ordered-float",
@@ -1596,6 +1596,17 @@ dependencies = [
  "foldhash 0.2.0",
  "hashbrown 0.16.1",
  "rustc-hash",
+]
+
+[[package]]
+name = "iddqd"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9a62dc942351d24e7c5495ab3c6d76698c471b35e2845544ed7866e688aed685"
+dependencies = [
+ "allocator-api2",
+ "equivalent",
+ "hashbrown 0.16.1",
 ]
 
 [[package]]
