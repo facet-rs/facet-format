@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.46.1](https://github.com/facet-rs/facet-format/compare/facet-typescript-v0.46.0...facet-typescript-v0.46.1) - 2026-05-19
+
+### Other
+
+- Short doc comment format for TypeScript
+
 ## [0.46.1](https://github.com/facet-rs/facet-format/compare/facet-json-schema-v0.46.0...facet-json-schema-v0.46.1) - 2026-05-06
 
 ### Other
