@@ -931,7 +931,7 @@ dependencies = [
  "facet",
  "facet-pretty",
  "facet-value",
- "iddqd 0.4.0",
+ "iddqd 0.4.2",
  "indoc",
  "jiff",
  "ordered-float",
@@ -1618,9 +1618,9 @@ dependencies = [
 
 [[package]]
 name = "iddqd"
-version = "0.4.0"
+version = "0.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9a62dc942351d24e7c5495ab3c6d76698c471b35e2845544ed7866e688aed685"
+checksum = "d7721c885a97a7c67bc8645958710f3f43b5e7ad8644ce6f43b188a77f05fda7"
 dependencies = [
  "allocator-api2",
  "equivalent",
