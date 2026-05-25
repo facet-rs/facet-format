@@ -1,6 +1,5 @@
 ---
 source: facet-python/src/lib.rs
-assertion_line: 998
 expression: py
 ---
 class IntKeyedMap(TypedDict, total=False):

@@ -209,13 +209,57 @@ impl PythonGenerator {
     fn generate_shape(&mut self, shape: &'static Shape) {
         let mut output = String::new();
 
-        // Handle transparent wrappers - generate a type alias to the inner type
+        // Handle transparent wrappers — generate a type alias to the inner type.
         if let Some(inner) = shape.inner {
             self.add_shape(inner);
             let inner_type = self.type_for_shape(inner, None);
             write_doc_comment(&mut output, shape.doc);
             writeln!(output, "type {} = {}", shape.type_identifier, inner_type).unwrap();
             output.push('\n');
+            self.generated
+                .insert(shape.type_identifier.to_string(), output);
+            return;
+        }
+
+        // Handle proxy types — use the proxy's wire format but keep the original
+        // type's name and doc comment. Mirrors facet-typescript's approach.
+        if let Some(proxy_def) = shape.proxy {
+            let proxy_shape = proxy_def.shape;
+            match &proxy_shape.ty {
+                Type::User(UserType::Struct(st)) => {
+                    // Proxy is a struct: generate TypedDict using the proxy's fields.
+                    // Doc comment is written by generate_struct → generate_typed_dict.
+                    self.generate_struct(&mut output, shape, st.fields, st.kind);
+                }
+                Type::User(UserType::Enum(en)) => {
+                    // Proxy is an enum: use proxy_shape's tag/untagged attributes so
+                    // the generated union matches the actual wire format.
+                    // Write doc comment here — the enum sub-generators don't.
+                    write_doc_comment(&mut output, shape.doc);
+                    let all_unit = en
+                        .variants
+                        .iter()
+                        .all(|v| matches!(v.data.kind, StructKind::Unit));
+                    if let Some(tag_key) = proxy_shape.tag {
+                        self.generate_enum_internally_tagged(&mut output, shape, en, tag_key);
+                    } else if proxy_shape.is_untagged() {
+                        self.generate_enum_untagged(&mut output, shape, en);
+                    } else if all_unit {
+                        self.generate_enum_unit_variants(&mut output, shape, en);
+                    } else {
+                        self.generate_enum_with_data(&mut output, shape, en);
+                    }
+                    output.push('\n');
+                }
+                _ => {
+                    // Scalar or other proxy type: generate a type alias.
+                    // Write doc comment here — the type alias path doesn't.
+                    write_doc_comment(&mut output, shape.doc);
+                    let proxy_type = self.type_for_shape(proxy_shape, None);
+                    writeln!(output, "type {} = {}", shape.type_identifier, proxy_type).unwrap();
+                    output.push('\n');
+                }
+            }
             self.generated
                 .insert(shape.type_identifier.to_string(), output);
             return;
@@ -293,15 +337,35 @@ impl PythonGenerator {
     ) {
         self.imports.insert("TypedDict");
 
-        let visible_fields: Vec<_> = fields
-            .iter()
-            .filter(|f| !f.flags.contains(facet_core::FieldFlags::SKIP))
-            .collect();
+        // Collect fields, recursively inlining any #[facet(flatten)] fields.
+        let all_fields = self.collect_flat_fields(fields);
 
-        // Functional form uses runtime expressions — quote forward references.
-        let needs_functional = visible_fields
+        // Partition: separate flattened tagged-enum fields from everything else.
+        // A flattened tagged-enum field cannot be expressed as a single TypedDict
+        // key — it causes the entire parent to expand into a per-variant union.
+        let mut base_fields: Vec<(&'static Field, bool)> = Vec::new();
+        let mut tag_enum_flattens: Vec<(&'static facet_core::EnumType, &'static str)> = Vec::new();
+
+        for &(field, force_optional) in &all_fields {
+            if field.is_flattened() {
+                let (inner, _) = Self::unwrap_to_inner_shape(field.shape.get());
+                if let (Type::User(UserType::Enum(en)), Some(tag)) = (&inner.ty, inner.tag) {
+                    tag_enum_flattens.push((en, tag));
+                    continue;
+                }
+            }
+            base_fields.push((field, force_optional));
+        }
+
+        if !tag_enum_flattens.is_empty() {
+            self.generate_struct_as_tagged_union(output, shape, &base_fields, &tag_enum_flattens);
+            return;
+        }
+
+        // Normal path: emit a single TypedDict class.
+        let needs_functional = all_fields
             .iter()
-            .any(|f| is_python_keyword(f.effective_name()));
+            .any(|(f, _)| is_python_keyword(f.effective_name()));
         let quote_after: Option<&str> = if needs_functional {
             Some(shape.type_identifier)
         } else {
@@ -309,10 +373,11 @@ impl PythonGenerator {
         };
 
         // Convert to TypedDictField for shared generation logic
-        let typed_dict_fields: Vec<_> = visible_fields
+        let typed_dict_fields: Vec<_> = all_fields
             .iter()
-            .map(|f| {
+            .map(|(f, force_optional)| {
                 let (type_string, required) = self.field_type_info(f, quote_after);
+                let required = required && !force_optional;
                 TypedDictField::new(f.effective_name(), type_string, required, f.doc)
             })
             .collect();
@@ -326,12 +391,223 @@ impl PythonGenerator {
         write_typed_dict(output, shape.type_identifier, &typed_dict_fields);
     }
 
+    /// Generate a struct that flattens a `#[facet(tag = "...")]` enum.
+    ///
+    /// Because the tag field and variant fields are merged directly into the parent
+    /// JSON object, the parent struct becomes a union of per-variant TypedDicts.
+    /// Each variant TypedDict is named `ParentNameVariantName` and contains:
+    ///   - all base fields of the parent (those not involved in the tagged flatten)
+    ///   - a `Required[Literal["VariantName"]]` tag field
+    ///   - the variant's own fields
+    fn generate_struct_as_tagged_union(
+        &mut self,
+        output: &mut String,
+        shape: &'static Shape,
+        base_fields: &[(&'static Field, bool)],
+        tag_enum_flattens: &[(&'static facet_core::EnumType, &'static str)],
+    ) {
+        self.imports.insert("TypedDict");
+        self.imports.insert("Required");
+        self.imports.insert("Literal");
+
+        let parent_name = shape.type_identifier;
+        let mut variant_class_names: Vec<String> = Vec::new();
+
+        for &(enum_type, tag_key) in tag_enum_flattens {
+            for variant in enum_type.variants {
+                let variant_name = variant.effective_name();
+                let class_name = format!("{}{}", parent_name, to_pascal_case(variant_name));
+
+                let mut fields: Vec<TypedDictField> = Vec::new();
+
+                // Parent's own base fields come first.
+                for &(f, force_optional) in base_fields {
+                    let (type_string, required) = self.field_type_info(f, None);
+                    let required = required && !force_optional;
+                    fields.push(TypedDictField::new(
+                        f.effective_name(),
+                        type_string,
+                        required,
+                        f.doc,
+                    ));
+                }
+
+                // Tag discriminator field.
+                let tag_type = format!("Literal[\"{}\"]", variant_name);
+                fields.push(TypedDictField::new(tag_key, tag_type, true, &[]));
+
+                // Variant-specific fields.
+                match variant.data.kind {
+                    StructKind::Unit => {
+                        // Only the tag field — no additional data.
+                    }
+                    StructKind::TupleStruct if variant.data.fields.len() == 1 => {
+                        let inner_shape = variant.data.fields[0].shape.get();
+                        let (resolved, _) = Self::unwrap_to_inner_shape(inner_shape);
+                        if let Type::User(UserType::Struct(st)) = &resolved.ty {
+                            // Inner type is a struct: inline its fields directly.
+                            self.add_shape(resolved);
+                            for f in st.fields {
+                                if f.should_skip_serializing_unconditional() {
+                                    continue;
+                                }
+                                let (type_string, required) = self.field_type_info(f, None);
+                                fields.push(TypedDictField::new(
+                                    f.effective_name(),
+                                    type_string,
+                                    required,
+                                    f.doc,
+                                ));
+                            }
+                        } else {
+                            // Primitive or collection: wrap in a "value" key.
+                            let inner_type = self.type_for_shape(inner_shape, None);
+                            fields.push(TypedDictField::new("value", inner_type, true, &[]));
+                        }
+                    }
+                    StructKind::TupleStruct => {
+                        let types: Vec<String> = variant
+                            .data
+                            .fields
+                            .iter()
+                            .map(|f| self.type_for_shape(f.shape.get(), None))
+                            .collect();
+                        let inner_type = format!("tuple[{}]", types.join(", "));
+                        fields.push(TypedDictField::new("value", inner_type, true, &[]));
+                    }
+                    _ => {
+                        // Struct variant: inline fields alongside the tag.
+                        for f in variant.data.fields {
+                            if f.should_skip_serializing_unconditional() {
+                                continue;
+                            }
+                            let (type_string, required) = self.field_type_info(f, None);
+                            fields.push(TypedDictField::new(
+                                f.effective_name(),
+                                type_string,
+                                required,
+                                f.doc,
+                            ));
+                        }
+                    }
+                }
+
+                let mut class_output = String::new();
+                write_typed_dict(&mut class_output, &class_name, &fields);
+                class_output.push('\n');
+                self.generated.insert(class_name.clone(), class_output);
+                variant_class_names.push(class_name);
+            }
+        }
+
+        write_doc_comment(output, shape.doc);
+        writeln!(
+            output,
+            "type {} = {}",
+            parent_name,
+            variant_class_names.join(" | ")
+        )
+        .unwrap();
+    }
+
+    /// Unwrap through `Option<T>`, pointers (`Arc<T>`, `Box<T>`), and transparent
+    /// wrappers to reach the effective inner shape for flatten purposes.
+    ///
+    /// Returns `(inner_shape, was_optional)` where `was_optional` is `true` if an
+    /// `Option` layer was encountered.
+    fn unwrap_to_inner_shape(shape: &'static Shape) -> (&'static Shape, bool) {
+        // Option<T> — mark optional and recurse on T.
+        if let Def::Option(opt) = &shape.def {
+            let (inner, _) = Self::unwrap_to_inner_shape(opt.t);
+            return (inner, true);
+        }
+        // Arc<T>, Box<T>, etc. — unwrap the pointee.
+        if let Def::Pointer(ptr) = &shape.def
+            && let Some(pointee) = ptr.pointee
+        {
+            return Self::unwrap_to_inner_shape(pointee);
+        }
+        // Transparent wrappers (#[facet(transparent)]).
+        if let Some(inner) = shape.inner {
+            let (inner_shape, is_optional) = Self::unwrap_to_inner_shape(inner);
+            return (inner_shape, is_optional);
+        }
+        // Proxy types — follow the proxy chain.
+        if let Some(proxy_def) = shape.proxy {
+            return Self::unwrap_to_inner_shape(proxy_def.shape);
+        }
+        (shape, false)
+    }
+
+    /// Collect visible fields, inlining `#[facet(flatten)]` ones.
+    ///
+    /// Each entry is `(field, force_optional)`. `force_optional` is `true` when the
+    /// field was inlined from an `Option<Struct>` flatten, meaning the child field
+    /// must be treated as optional in the parent regardless of its own shape.
+    fn collect_flat_fields(&mut self, fields: &'static [Field]) -> Vec<(&'static Field, bool)> {
+        let mut flatten_stack: Vec<&'static str> = Vec::new();
+        self.collect_flat_fields_guarded(fields, false, &mut flatten_stack)
+    }
+
+    fn collect_flat_fields_guarded(
+        &mut self,
+        fields: &'static [Field],
+        force_optional: bool,
+        flatten_stack: &mut Vec<&'static str>,
+    ) -> Vec<(&'static Field, bool)> {
+        let mut result = Vec::new();
+        for field in fields {
+            // Covers both #[facet(skip)] and #[facet(skip_serializing)].
+            if field.should_skip_serializing_unconditional() {
+                continue;
+            }
+
+            if field.is_flattened() {
+                // Unwrap Option/pointer/transparent layers to reach the struct shape.
+                let (inner_shape, parent_is_optional) =
+                    Self::unwrap_to_inner_shape(field.shape.get());
+
+                // Queue the struct itself (not any Option/pointer wrapper) so it
+                // gets its own TypedDict if referenced elsewhere.
+                self.add_shape(inner_shape);
+
+                if let Type::User(UserType::Struct(st)) = &inner_shape.ty {
+                    // Cycle guard: skip self-referential shapes.
+                    let key = inner_shape.type_identifier;
+                    if flatten_stack.contains(&key) {
+                        continue;
+                    }
+                    flatten_stack.push(key);
+                    let inner = self.collect_flat_fields_guarded(
+                        st.fields,
+                        force_optional || parent_is_optional,
+                        flatten_stack,
+                    );
+                    result.extend(inner);
+                    flatten_stack.pop();
+                } else {
+                    // Non-struct flatten (e.g. a map) — emit as a regular field.
+                    result.push((field, force_optional));
+                }
+            } else {
+                result.push((field, force_optional));
+            }
+        }
+        result
+    }
+
     /// Get the Python type string and required status for a field.
     fn field_type_info(&mut self, field: &Field, quote_after: Option<&str>) -> (String, bool) {
         if let Def::Option(opt) = &field.shape.get().def {
             (self.type_for_shape(opt.t, quote_after), false)
         } else {
-            (self.type_for_shape(field.shape.get(), quote_after), true)
+            // Fields with a default value are optional in JSON — facet fills in
+            // the default when the key is absent. Matches facet-typescript behaviour.
+            let required = field.default.is_none();
+            (
+                self.type_for_shape(field.shape.get(), quote_after),
+                required,
+            )
         }
     }
 
@@ -348,12 +624,182 @@ impl PythonGenerator {
 
         write_doc_comment(output, shape.doc);
 
-        if all_unit {
+        if let Some(tag_key) = shape.tag {
+            self.generate_enum_internally_tagged(output, shape, enum_type, tag_key);
+        } else if shape.is_untagged() {
+            self.generate_enum_untagged(output, shape, enum_type);
+        } else if all_unit {
             self.generate_enum_unit_variants(output, shape, enum_type);
         } else {
             self.generate_enum_with_data(output, shape, enum_type);
         }
         output.push('\n');
+    }
+
+    /// Generate an internally-tagged enum (`#[facet(tag = "key")]`).
+    ///
+    /// Each variant becomes a named TypedDict `EnumNameVariantName` containing
+    /// a `Required[Literal["VariantName"]]` tag field plus the variant's own fields.
+    fn generate_enum_internally_tagged(
+        &mut self,
+        output: &mut String,
+        shape: &'static Shape,
+        enum_type: &facet_core::EnumType,
+        tag_key: &'static str,
+    ) {
+        self.imports.insert("TypedDict");
+        self.imports.insert("Required");
+        self.imports.insert("Literal");
+
+        let enum_name = shape.type_identifier;
+        let mut variant_class_names: Vec<String> = Vec::new();
+
+        for variant in enum_type.variants {
+            let variant_name = variant.effective_name();
+            let class_name = format!("{}{}", enum_name, to_pascal_case(variant_name));
+            let tag_type = format!("Literal[\"{}\"]", variant_name);
+
+            let mut fields: Vec<TypedDictField> = Vec::new();
+            // Tag field always comes first.
+            fields.push(TypedDictField::new(tag_key, tag_type, true, &[]));
+
+            match variant.data.kind {
+                StructKind::Unit => {
+                    // Only the tag field — no additional data.
+                }
+                StructKind::TupleStruct if variant.data.fields.len() == 1 => {
+                    let inner_shape = variant.data.fields[0].shape.get();
+                    let (resolved, _) = Self::unwrap_to_inner_shape(inner_shape);
+                    if let Type::User(UserType::Struct(st)) = &resolved.ty {
+                        // Inner type is a struct: inline its fields directly, matching
+                        // facet-json which merges struct fields at the same level as the tag.
+                        self.add_shape(resolved);
+                        for f in st.fields {
+                            if f.should_skip_serializing_unconditional() {
+                                continue;
+                            }
+                            let (type_string, required) = self.field_type_info(f, None);
+                            fields.push(TypedDictField::new(
+                                f.effective_name(),
+                                type_string,
+                                required,
+                                f.doc,
+                            ));
+                        }
+                    } else {
+                        // Primitive or collection: wrap in a "value" key.
+                        let inner_type = self.type_for_shape(inner_shape, None);
+                        fields.push(TypedDictField::new("value", inner_type, true, &[]));
+                    }
+                }
+                StructKind::TupleStruct => {
+                    // Multi-field tuple: tag + tuple payload under a "value" key.
+                    let types: Vec<String> = variant
+                        .data
+                        .fields
+                        .iter()
+                        .map(|f| self.type_for_shape(f.shape.get(), None))
+                        .collect();
+                    let inner_type = format!("tuple[{}]", types.join(", "));
+                    fields.push(TypedDictField::new("value", inner_type, true, &[]));
+                }
+                _ => {
+                    // Struct variant: inline all fields alongside the tag.
+                    for field in variant.data.fields {
+                        if field.should_skip_serializing_unconditional() {
+                            continue;
+                        }
+                        let (type_string, required) = self.field_type_info(field, None);
+                        fields.push(TypedDictField::new(
+                            field.effective_name(),
+                            type_string,
+                            required,
+                            field.doc,
+                        ));
+                    }
+                }
+            }
+
+            let mut class_output = String::new();
+            write_typed_dict(&mut class_output, &class_name, &fields);
+            class_output.push('\n');
+            self.generated.insert(class_name.clone(), class_output);
+            variant_class_names.push(class_name);
+        }
+
+        writeln!(
+            output,
+            "type {} = {}",
+            enum_name,
+            variant_class_names.join(" | ")
+        )
+        .unwrap();
+    }
+
+    /// Generate an untagged enum (`#[facet(untagged)]`).
+    ///
+    /// Each variant serializes purely by content with no discriminator:
+    ///   - Unit variant    => `Literal["VariantName"]`
+    ///   - Newtype variant => the inner Python type directly
+    ///   - Struct variant  => a named TypedDict `EnumNameVariantName`
+    fn generate_enum_untagged(
+        &mut self,
+        output: &mut String,
+        shape: &'static Shape,
+        enum_type: &facet_core::EnumType,
+    ) {
+        self.imports.insert("Literal");
+
+        let enum_name = shape.type_identifier;
+        let mut variant_types: Vec<String> = Vec::new();
+
+        for variant in enum_type.variants {
+            let variant_name = variant.effective_name();
+
+            match variant.data.kind {
+                StructKind::Unit => {
+                    variant_types.push(format!("Literal[\"{}\"]", variant_name));
+                }
+                StructKind::TupleStruct if variant.data.fields.len() == 1 => {
+                    // Newtype: the inner type directly, no wrapper.
+                    let inner = self.type_for_shape(variant.data.fields[0].shape.get(), None);
+                    variant_types.push(inner);
+                }
+                StructKind::TupleStruct => {
+                    // Multi-field tuple: tuple[T1, T2, ...]
+                    let types: Vec<String> = variant
+                        .data
+                        .fields
+                        .iter()
+                        .map(|f| self.type_for_shape(f.shape.get(), None))
+                        .collect();
+                    variant_types.push(format!("tuple[{}]", types.join(", ")));
+                }
+                _ => {
+                    // Struct variant: generate a named TypedDict.
+                    self.imports.insert("TypedDict");
+                    self.imports.insert("Required");
+                    let class_name = format!("{}{}", enum_name, to_pascal_case(variant_name));
+                    let typed_dict_fields: Vec<TypedDictField> = variant
+                        .data
+                        .fields
+                        .iter()
+                        .filter(|f| !f.should_skip_serializing_unconditional())
+                        .map(|f| {
+                            let (type_string, required) = self.field_type_info(f, None);
+                            TypedDictField::new(f.effective_name(), type_string, required, f.doc)
+                        })
+                        .collect();
+                    let mut class_output = String::new();
+                    write_typed_dict(&mut class_output, &class_name, &typed_dict_fields);
+                    class_output.push('\n');
+                    self.generated.insert(class_name.clone(), class_output);
+                    variant_types.push(class_name);
+                }
+            }
+        }
+
+        writeln!(output, "type {} = {}", enum_name, variant_types.join(" | ")).unwrap();
     }
 
     /// Generate a simple enum where all variants are unit variants.
@@ -658,6 +1104,18 @@ impl PythonGenerator {
 
             // Char as string
             "char" => "str".to_string(),
+
+            // chrono date/time types — all serialise as ISO 8601 strings
+            "NaiveDate"
+            | "NaiveDateTime"
+            | "NaiveTime"
+            | "DateTime<Utc>"
+            | "DateTime<FixedOffset>"
+            | "DateTime<Local>"
+                if shape.module_path == Some("chrono") =>
+            {
+                "str".to_string()
+            }
 
             // Unknown scalar
             _ => {
@@ -1144,6 +1602,987 @@ mod tests {
             py.contains("Required[\"Recipient\"]"),
             "forward reference in functional TypedDict should be quoted, got:\n{py}"
         );
+        insta::assert_snapshot!(py);
+    }
+
+    #[test]
+    fn test_flatten() {
+        #[derive(Facet)]
+        struct Inner {
+            x: f64,
+            y: f64,
+        }
+
+        #[derive(Facet)]
+        struct Outer {
+            #[facet(flatten)]
+            inner: Inner,
+            z: String,
+        }
+
+        let py = to_python::<Outer>(false);
+
+        // Inner should still be generated as its own TypedDict
+        assert!(
+            py.contains("class Inner(TypedDict, total=False):"),
+            "#[facet(flatten)] — Inner should still be generated as its own TypedDict, got:\n{py}"
+        );
+
+        // The flattened field 'inner' must NOT appear as a key in Outer
+        assert!(
+            !py.contains("inner: Required[Inner]"),
+            "#[facet(flatten)] — 'inner' should be inlined, not a nested field, got:\n{py}"
+        );
+
+        // x and y must be inlined directly into Outer
+        assert!(
+            py.contains("    x: Required[float]"),
+            "#[facet(flatten)] — 'x' should be inlined from Inner into Outer, got:\n{py}"
+        );
+        assert!(
+            py.contains("    y: Required[float]"),
+            "#[facet(flatten)] — 'y' should be inlined from Inner into Outer, got:\n{py}"
+        );
+
+        insta::assert_snapshot!(py);
+    }
+
+    #[test]
+    fn test_flatten_option() {
+        // #[facet(flatten)] on Option<Struct> — the inlined fields should be
+        // optional in the parent TypedDict because their JSON presence is
+        // conditional on the Option being Some.
+        #[derive(Facet)]
+        struct Coords {
+            x: f64,
+            y: f64,
+        }
+
+        #[derive(Facet)]
+        struct Entity {
+            name: String,
+            #[facet(flatten)]
+            coords: Option<Coords>,
+        }
+
+        let py = to_python::<Entity>(false);
+
+        // Coords must still be generated as its own TypedDict
+        assert!(
+            py.contains("class Coords(TypedDict, total=False):"),
+            "flatten Option — Coords should still be generated, got:\n{py}"
+        );
+        // The raw 'coords' field must NOT appear as a nested key
+        assert!(
+            !py.contains("coords:"),
+            "flatten Option — 'coords' key should not appear in Entity, got:\n{py}"
+        );
+        // x and y must be inlined as optional (bare type, no Required[]).
+        // Coords' own definition still uses Required[float], so check with
+        // indentation to match Entity's lines only.
+        assert!(
+            py.contains("    x: float"),
+            "flatten Option — 'x' should be inlined as optional float in Entity, got:\n{py}"
+        );
+        assert!(
+            py.contains("    y: float"),
+            "flatten Option — 'y' should be inlined as optional float in Entity, got:\n{py}"
+        );
+
+        insta::assert_snapshot!(py);
+    }
+
+    #[test]
+    fn test_flatten_with_rename_all() {
+        // Flattened struct with rename_all — inlined fields should use the
+        // renamed effective names, not the original Rust field names.
+        #[derive(Facet)]
+        #[facet(rename_all = "camelCase")]
+        struct Coords {
+            pos_x: f64,
+            pos_y: f64,
+        }
+
+        #[derive(Facet)]
+        struct Entity {
+            #[facet(flatten)]
+            coords: Coords,
+            label: String,
+        }
+
+        let py = to_python::<Entity>(false);
+
+        // Renamed fields must appear, not the Rust names
+        assert!(
+            py.contains("posX: Required[float]"),
+            "flatten + rename_all — 'posX' should be inlined into Entity, got:\n{py}"
+        );
+        assert!(
+            py.contains("posY: Required[float]"),
+            "flatten + rename_all — 'posY' should be inlined into Entity, got:\n{py}"
+        );
+        // Raw Rust names must NOT appear in the output
+        assert!(
+            !py.contains("pos_x"),
+            "flatten + rename_all — raw 'pos_x' should not appear, got:\n{py}"
+        );
+
+        insta::assert_snapshot!(py);
+    }
+
+    #[test]
+    fn test_flatten_with_optional_fields() {
+        // Optional fields inside a flattened struct must remain optional
+        // (i.e. not wrapped in Required[]) in the parent TypedDict.
+        #[derive(Facet)]
+        struct Meta {
+            description: Option<String>,
+            version: u32,
+        }
+
+        #[derive(Facet)]
+        struct Package {
+            name: String,
+            #[facet(flatten)]
+            meta: Meta,
+        }
+
+        let py = to_python::<Package>(false);
+
+        // Optional field must stay optional — in this generator optional fields
+        // use a bare type (no Required[]) because the TypedDict is total=False.
+        assert!(
+            py.contains("description: str"),
+            "flatten + optional — 'description' should be optional (bare type) in Package, got:\n{py}"
+        );
+        assert!(
+            !py.contains("description: Required[str]"),
+            "flatten + optional — 'description' must NOT be wrapped in Required[], got:\n{py}"
+        );
+        // Required field must stay required
+        assert!(
+            py.contains("version: Required[int]"),
+            "flatten + optional — 'version' should be required in Package, got:\n{py}"
+        );
+
+        insta::assert_snapshot!(py);
+    }
+
+    #[test]
+    fn test_flatten_multilevel() {
+        // A flattened struct that itself contains a flattened struct —
+        // all fields should end up in the outermost TypedDict.
+        #[derive(Facet)]
+        struct Point {
+            x: f64,
+            y: f64,
+        }
+
+        #[derive(Facet)]
+        struct ColoredPoint {
+            #[facet(flatten)]
+            point: Point,
+            color: String,
+        }
+
+        #[derive(Facet)]
+        struct Scene {
+            #[facet(flatten)]
+            colored_point: ColoredPoint,
+            name: String,
+        }
+
+        let py = to_python::<Scene>(false);
+
+        // x and y must be inlined all the way into Scene
+        assert!(
+            py.contains("    x: Required[float]"),
+            "multi-level flatten — 'x' should reach Scene, got:\n{py}"
+        );
+        assert!(
+            py.contains("    y: Required[float]"),
+            "multi-level flatten — 'y' should reach Scene, got:\n{py}"
+        );
+        assert!(
+            py.contains("    color: Required[str]"),
+            "multi-level flatten — 'color' should reach Scene, got:\n{py}"
+        );
+        // Neither intermediate field name should appear as a key
+        assert!(
+            !py.contains("colored_point:"),
+            "multi-level flatten — 'colored_point' key should not appear in Scene, got:\n{py}"
+        );
+        assert!(
+            !py.contains("point:"),
+            "multi-level flatten — 'point' key should not appear in Scene, got:\n{py}"
+        );
+
+        insta::assert_snapshot!(py);
+    }
+
+    #[test]
+    fn test_flatten_preserves_field_docs() {
+        // Doc comments on fields inside a flattened struct should be
+        // preserved when those fields are inlined into the parent TypedDict.
+        #[derive(Facet)]
+        struct Dims {
+            /// Width in pixels
+            width: u32,
+            /// Height in pixels
+            height: u32,
+        }
+
+        #[derive(Facet)]
+        struct Image {
+            #[facet(flatten)]
+            dims: Dims,
+            path: String,
+        }
+
+        let py = to_python::<Image>(false);
+
+        assert!(
+            py.contains("width: Required[int]"),
+            "flatten docs — 'width' should be inlined into Image, got:\n{py}"
+        );
+        assert!(
+            py.contains("height: Required[int]"),
+            "flatten docs — 'height' should be inlined into Image, got:\n{py}"
+        );
+        assert!(
+            !py.contains("dims: Required[Dims]"),
+            "flatten docs — 'dims' key should not appear in Image, got:\n{py}"
+        );
+
+        insta::assert_snapshot!(py);
+    }
+
+    #[test]
+    fn test_flatten_arc() {
+        // #[facet(flatten)] on Arc<Struct> — should inline the same as a plain
+        // struct flatten, since Arc is just a pointer wrapper.
+        use std::sync::Arc;
+
+        #[derive(Facet)]
+        struct Coords {
+            x: f64,
+            y: f64,
+        }
+
+        #[derive(Facet)]
+        struct Entity {
+            name: String,
+            #[facet(flatten)]
+            coords: Arc<Coords>,
+        }
+
+        let py = to_python::<Entity>(false);
+
+        assert!(
+            py.contains("class Coords(TypedDict, total=False):"),
+            "flatten Arc — Coords should still be generated, got:\n{py}"
+        );
+        assert!(
+            !py.contains("coords:"),
+            "flatten Arc — 'coords' key should not appear in Entity, got:\n{py}"
+        );
+        assert!(
+            py.contains("    x: Required[float]"),
+            "flatten Arc — 'x' should be inlined as required float in Entity, got:\n{py}"
+        );
+        assert!(
+            py.contains("    y: Required[float]"),
+            "flatten Arc — 'y' should be inlined as required float in Entity, got:\n{py}"
+        );
+
+        insta::assert_snapshot!(py);
+    }
+
+    #[test]
+    fn test_flatten_option_arc() {
+        // #[facet(flatten)] on Option<Arc<Struct>> — multi-layer unwrap.
+        // Fields should be optional (from the Option) despite the Arc wrapper.
+        use std::sync::Arc;
+
+        #[derive(Facet)]
+        struct Coords {
+            x: f64,
+            y: f64,
+        }
+
+        #[derive(Facet)]
+        struct Entity {
+            name: String,
+            #[facet(flatten)]
+            coords: Option<Arc<Coords>>,
+        }
+
+        let py = to_python::<Entity>(false);
+
+        assert!(
+            py.contains("class Coords(TypedDict, total=False):"),
+            "flatten Option<Arc> — Coords should still be generated, got:\n{py}"
+        );
+        assert!(
+            !py.contains("coords:"),
+            "flatten Option<Arc> — 'coords' key should not appear in Entity, got:\n{py}"
+        );
+        // Fields must be optional (bare type) because of the Option wrapper
+        assert!(
+            py.contains("    x: float"),
+            "flatten Option<Arc> — 'x' should be inlined as optional float in Entity, got:\n{py}"
+        );
+        assert!(
+            py.contains("    y: float"),
+            "flatten Option<Arc> — 'y' should be inlined as optional float in Entity, got:\n{py}"
+        );
+
+        insta::assert_snapshot!(py);
+    }
+
+    #[test]
+    fn test_flatten_skip_serializing_field() {
+        // A #[facet(skip_serializing)] field inside a flattened struct must
+        // NOT appear in the parent TypedDict — it is excluded from the wire
+        // format so it must not be part of the Python type either.
+        #[derive(Facet)]
+        struct Coords {
+            x: f64,
+            y: f64,
+            #[facet(skip_serializing)]
+            internal: u8,
+        }
+
+        #[derive(Facet)]
+        struct Entity {
+            name: String,
+            #[facet(flatten)]
+            coords: Coords,
+        }
+
+        let py = to_python::<Entity>(false);
+
+        assert!(
+            py.contains("    x: Required[float]"),
+            "flatten skip_serializing — 'x' should be inlined, got:\n{py}"
+        );
+        assert!(
+            py.contains("    y: Required[float]"),
+            "flatten skip_serializing — 'y' should be inlined, got:\n{py}"
+        );
+        assert!(
+            !py.contains("internal"),
+            "flatten skip_serializing — 'internal' must not appear anywhere, got:\n{py}"
+        );
+
+        insta::assert_snapshot!(py);
+    }
+
+    #[test]
+    fn test_default_field_not_required() {
+        // Fields with #[facet(default)] are optional in JSON — facet fills in
+        // the default when the key is absent. They must not be Required[T].
+        #[derive(Facet)]
+        struct Config {
+            name: String,
+            #[facet(default)]
+            retries: u32,
+            #[facet(default = 30)]
+            timeout: u32,
+            required_value: i32,
+        }
+
+        let py = to_python::<Config>(false);
+
+        // Non-default fields must still be Required
+        assert!(
+            py.contains("name: Required[str]"),
+            "default — 'name' has no default so must be Required, got:\n{py}"
+        );
+        assert!(
+            py.contains("required_value: Required[int]"),
+            "default — 'required_value' has no default so must be Required, got:\n{py}"
+        );
+        // Fields with defaults must NOT be Required
+        assert!(
+            !py.contains("retries: Required[int]"),
+            "default — 'retries' has a default so must NOT be Required, got:\n{py}"
+        );
+        assert!(
+            py.contains("retries: int"),
+            "default — 'retries' should be bare int (optional), got:\n{py}"
+        );
+        assert!(
+            !py.contains("timeout: Required[int]"),
+            "default — 'timeout' has a default so must NOT be Required, got:\n{py}"
+        );
+        assert!(
+            py.contains("timeout: int"),
+            "default — 'timeout' should be bare int (optional), got:\n{py}"
+        );
+
+        insta::assert_snapshot!(py);
+    }
+
+    #[test]
+    fn test_internally_tagged_enum() {
+        // #[facet(tag = "type")] enums are internally tagged: facet-json serializes
+        // each variant as {"type":"VariantName", ...fields}. The Python TypedDict
+        // must include the tag field, NOT an outer wrapper key.
+        #[derive(Facet)]
+        #[facet(tag = "type")]
+        #[repr(C)]
+        #[allow(dead_code)]
+        enum Shape {
+            Mat,
+            Sp { first_roll: u32, long_last: bool },
+        }
+
+        let py = to_python::<Shape>(false);
+
+        // Must NOT use external wrapping ({"Sp": {...}} does not exist at runtime)
+        assert!(
+            !py.contains("Sp: Required"),
+            "internally tagged — 'Sp' must not appear as an outer key, got:\n{py}"
+        );
+        // Tag field must be present for the struct variant
+        assert!(
+            py.contains("type: Required[Literal[\"Sp\"]]"),
+            "internally tagged — tag field missing for Sp variant, got:\n{py}"
+        );
+        // Struct fields must be inlined at the same level as the tag
+        assert!(
+            py.contains("first_roll: Required[int]"),
+            "internally tagged — 'first_roll' should be inlined, got:\n{py}"
+        );
+        // Unit variant must also get a TypedDict with just the tag field
+        assert!(
+            py.contains("type: Required[Literal[\"Mat\"]]"),
+            "internally tagged — tag field missing for Mat variant, got:\n{py}"
+        );
+
+        insta::assert_snapshot!(py);
+    }
+
+    #[test]
+    fn test_untagged_enum() {
+        // #[facet(untagged)] enums serialize each variant purely by content —
+        // no discriminator key at all. The Python union must reflect this:
+        //   unit    => Literal["VariantName"]
+        //   newtype => the inner type directly (no wrapper TypedDict)
+        //   struct  => a named TypedDict with inlined fields
+        #[derive(Facet)]
+        #[facet(untagged)]
+        #[repr(C)]
+        #[allow(dead_code)]
+        enum Value {
+            None,
+            Number(f64),
+            Point { x: f64, y: f64 },
+        }
+
+        let py = to_python::<Value>(false);
+
+        // Newtype must NOT be wrapped in {"Number": ...} — the float appears directly
+        assert!(
+            !py.contains("Number: Required"),
+            "untagged — 'Number' must not appear as an outer key, got:\n{py}"
+        );
+        // The union must include float directly for the newtype variant
+        assert!(
+            py.contains("float"),
+            "untagged — float should appear directly in the union, got:\n{py}"
+        );
+        // Struct variant must NOT be wrapped in {"Point": ...}
+        assert!(
+            !py.contains("Point: Required"),
+            "untagged — 'Point' must not appear as an outer key, got:\n{py}"
+        );
+        // Struct variant fields must be in a named TypedDict
+        assert!(
+            py.contains("x: Required[float]"),
+            "untagged — 'x' field should appear in a TypedDict, got:\n{py}"
+        );
+        assert!(
+            py.contains("y: Required[float]"),
+            "untagged — 'y' field should appear in a TypedDict, got:\n{py}"
+        );
+
+        insta::assert_snapshot!(py);
+    }
+
+    #[test]
+    fn test_flatten_tagged_enum() {
+        // When a struct flattens a #[facet(tag = "...")] enum, facet-json merges
+        // the tag field and variant fields directly into the parent object — no
+        // wrapper key appears. The Python output must reflect this by turning the
+        // parent struct into a union of per-variant TypedDicts, each containing
+        // the parent's own fields plus the tag discriminator plus the variant fields.
+        #[derive(Facet)]
+        #[facet(tag = "type")]
+        #[repr(C)]
+        #[allow(dead_code)]
+        enum Product {
+            Irs { pay_rate: f64, receive_rate: f64 },
+            Fx { ccy: String, amount: f64 },
+        }
+
+        #[derive(Facet)]
+        struct Deal {
+            id: String,
+            #[facet(flatten)]
+            product: Product,
+        }
+
+        let py = to_python::<Deal>(false);
+
+        // The "product" key must NOT appear — it does not exist in the JSON
+        assert!(
+            !py.contains("product:"),
+            "flatten tagged enum — 'product' key must not appear, got:\n{py}"
+        );
+        // Deal must be a union, not a single class
+        assert!(
+            !py.contains("class Deal(TypedDict"),
+            "flatten tagged enum — Deal must not be a single TypedDict class, got:\n{py}"
+        );
+        assert!(
+            py.contains("type Deal = "),
+            "flatten tagged enum — Deal should be a union type alias, got:\n{py}"
+        );
+        // Per-variant TypedDicts must exist
+        assert!(
+            py.contains("class DealIrs(TypedDict, total=False):"),
+            "flatten tagged enum — DealIrs class missing, got:\n{py}"
+        );
+        assert!(
+            py.contains("class DealFx(TypedDict, total=False):"),
+            "flatten tagged enum — DealFx class missing, got:\n{py}"
+        );
+        // Tag discriminator fields
+        assert!(
+            py.contains("type: Required[Literal[\"Irs\"]]"),
+            "flatten tagged enum — tag field missing for Irs variant, got:\n{py}"
+        );
+        assert!(
+            py.contains("type: Required[Literal[\"Fx\"]]"),
+            "flatten tagged enum — tag field missing for Fx variant, got:\n{py}"
+        );
+        // Base field from parent must appear in both variants
+        assert!(
+            py.contains("id: Required[str]"),
+            "flatten tagged enum — base field 'id' must be inlined into variants, got:\n{py}"
+        );
+        // Variant-specific fields
+        assert!(
+            py.contains("pay_rate: Required[float]"),
+            "flatten tagged enum — 'pay_rate' field missing from DealIrs, got:\n{py}"
+        );
+        assert!(
+            py.contains("ccy: Required[str]"),
+            "flatten tagged enum — 'ccy' field missing from DealFx, got:\n{py}"
+        );
+
+        insta::assert_snapshot!(py);
+    }
+
+    #[test]
+    fn test_internally_tagged_newtype_struct_variant() {
+        // When a tagged enum has a newtype variant whose inner type is a struct,
+        // facet-json inlines the struct's fields at the same level as the tag —
+        // there is no "value" wrapper key. The Python TypedDict must match.
+        #[derive(Facet)]
+        struct IrsData {
+            pay_rate: f64,
+            receive_rate: f64,
+        }
+
+        #[derive(Facet)]
+        #[facet(tag = "type")]
+        #[repr(C)]
+        #[allow(dead_code)]
+        enum Product {
+            Irs(IrsData),
+            Fixed { rate: f64 },
+        }
+
+        let py = to_python::<Product>(false);
+
+        // Must NOT have a "value" key wrapping IrsData
+        assert!(
+            !py.contains("value: Required[IrsData]"),
+            "tagged newtype struct — IrsData fields must be inlined, not wrapped in 'value', got:\n{py}"
+        );
+        // Tag discriminator must be present
+        assert!(
+            py.contains("type: Required[Literal[\"Irs\"]]"),
+            "tagged newtype struct — tag field missing for Irs variant, got:\n{py}"
+        );
+        // Struct fields must be inlined alongside the tag
+        assert!(
+            py.contains("pay_rate: Required[float]"),
+            "tagged newtype struct — 'pay_rate' must be inlined from IrsData, got:\n{py}"
+        );
+        assert!(
+            py.contains("receive_rate: Required[float]"),
+            "tagged newtype struct — 'receive_rate' must be inlined from IrsData, got:\n{py}"
+        );
+
+        insta::assert_snapshot!(py);
+    }
+
+    #[test]
+    fn test_flatten_tagged_enum_newtype_struct() {
+        // Same as above but the tagged enum is flattened into a parent struct.
+        // The per-variant TypedDicts must combine the parent's base fields with
+        // the inlined inner-struct fields — no "value" wrapper key.
+        #[derive(Facet)]
+        struct IrsData {
+            pay_rate: f64,
+            receive_rate: f64,
+        }
+
+        #[derive(Facet)]
+        struct FxData {
+            ccy: String,
+            amount: f64,
+        }
+
+        #[derive(Facet)]
+        #[facet(tag = "type")]
+        #[repr(C)]
+        #[allow(dead_code)]
+        enum Product {
+            Irs(IrsData),
+            Fx(FxData),
+        }
+
+        #[derive(Facet)]
+        struct Deal {
+            id: String,
+            #[facet(flatten)]
+            product: Product,
+        }
+
+        let py = to_python::<Deal>(false);
+
+        // Must NOT have "value" wrappers
+        assert!(
+            !py.contains("value: Required[IrsData]"),
+            "flatten tagged newtype struct — IrsData fields must be inlined, got:\n{py}"
+        );
+        assert!(
+            !py.contains("value: Required[FxData]"),
+            "flatten tagged newtype struct — FxData fields must be inlined, got:\n{py}"
+        );
+        // Base field from parent must appear in both variants
+        assert!(
+            py.contains("id: Required[str]"),
+            "flatten tagged newtype struct — base field 'id' must be inlined, got:\n{py}"
+        );
+        // Tag discriminators
+        assert!(
+            py.contains("type: Required[Literal[\"Irs\"]]"),
+            "flatten tagged newtype struct — tag field missing for Irs, got:\n{py}"
+        );
+        assert!(
+            py.contains("type: Required[Literal[\"Fx\"]]"),
+            "flatten tagged newtype struct — tag field missing for Fx, got:\n{py}"
+        );
+        // Variant fields inlined
+        assert!(
+            py.contains("pay_rate: Required[float]"),
+            "flatten tagged newtype struct — 'pay_rate' must be inlined, got:\n{py}"
+        );
+        assert!(
+            py.contains("ccy: Required[str]"),
+            "flatten tagged newtype struct — 'ccy' must be inlined, got:\n{py}"
+        );
+
+        insta::assert_snapshot!(py);
+    }
+
+    #[test]
+    fn test_internally_tagged_newtype_primitive_variant() {
+        // When a tagged enum has a newtype variant whose inner type is a primitive
+        // or collection, a "value" key IS correct — the primitive cannot be inlined.
+        #[derive(Facet)]
+        #[facet(tag = "type")]
+        #[repr(C)]
+        #[allow(dead_code)]
+        enum Event {
+            Count(u32),
+        }
+
+        let py = to_python::<Event>(false);
+
+        // Primitive newtype: "value" key must be present
+        assert!(
+            py.contains("value: Required[int]"),
+            "tagged newtype primitive — 'value' key must be present for primitive inner type, got:\n{py}"
+        );
+        assert!(
+            py.contains("type: Required[Literal[\"Count\"]]"),
+            "tagged newtype primitive — tag field missing for Count variant, got:\n{py}"
+        );
+
+        insta::assert_snapshot!(py);
+    }
+
+    #[test]
+    fn test_chrono_types() {
+        use chrono::{DateTime, NaiveDate, NaiveDateTime, NaiveTime, Utc};
+
+        #[derive(Facet)]
+        struct Event {
+            date: NaiveDate,
+            datetime: NaiveDateTime,
+            time: NaiveTime,
+            timestamp: DateTime<Utc>,
+            optional_date: Option<NaiveDate>,
+        }
+
+        let py = to_python::<Event>(false);
+
+        // All chrono types must map to str, not Any
+        assert!(
+            !py.contains("Any"),
+            "chrono types must not produce Any, got:\n{py}"
+        );
+        assert!(
+            py.contains("date: Required[str]"),
+            "NaiveDate must map to str, got:\n{py}"
+        );
+        assert!(
+            py.contains("datetime: Required[str]"),
+            "NaiveDateTime must map to str, got:\n{py}"
+        );
+        assert!(
+            py.contains("time: Required[str]"),
+            "NaiveTime must map to str, got:\n{py}"
+        );
+        assert!(
+            py.contains("timestamp: Required[str]"),
+            "DateTime<Utc> must map to str, got:\n{py}"
+        );
+        // Optional chrono field must be bare str (no Required[])
+        assert!(
+            py.contains("optional_date: str"),
+            "Option<NaiveDate> must map to bare str, got:\n{py}"
+        );
+
+        insta::assert_snapshot!(py);
+    }
+
+    #[test]
+    fn test_proxy_preserves_doc_comment() {
+        // Doc comments on the proxied type should appear exactly once in the
+        // output — not doubled (once from generate_shape, once from generate_typed_dict).
+        /// A 2-D point in wire format.
+        #[derive(Facet)]
+        struct WirePoint {
+            x: f64,
+            y: f64,
+        }
+
+        /// A 2-D point (internal representation).
+        #[derive(Facet)]
+        #[facet(proxy = WirePoint)]
+        #[allow(dead_code)]
+        struct Point {
+            internal_x: f64,
+            internal_y: f64,
+        }
+
+        impl TryFrom<WirePoint> for Point {
+            type Error = String;
+            fn try_from(w: WirePoint) -> Result<Self, Self::Error> {
+                Ok(Self {
+                    internal_x: w.x,
+                    internal_y: w.y,
+                })
+            }
+        }
+
+        impl From<&Point> for WirePoint {
+            fn from(p: &Point) -> Self {
+                Self {
+                    x: p.internal_x,
+                    y: p.internal_y,
+                }
+            }
+        }
+
+        let py = to_python::<Point>(false);
+
+        // Proxy fields must appear, not the internal ones
+        assert!(
+            py.contains("x: Required[float]"),
+            "proxy doc — proxy field 'x' must appear, got:\n{py}"
+        );
+        assert!(
+            !py.contains("internal_x"),
+            "proxy doc — internal field must not appear, got:\n{py}"
+        );
+
+        insta::assert_snapshot!(py);
+    }
+
+    #[test]
+    fn test_proxy_struct() {
+        // When a struct has #[facet(proxy = ProxyType)], facet-json uses ProxyType
+        // for the wire format. facet-python must generate a TypedDict matching the
+        // proxy's fields, not the internal struct fields.
+        #[derive(Facet)]
+        struct WireType {
+            x: f64,
+            y: f64,
+        }
+
+        #[derive(Facet)]
+        #[facet(proxy = WireType)]
+        #[allow(dead_code)]
+        struct InternalPoint {
+            internal_x: f64,
+            internal_y: f64,
+        }
+
+        impl TryFrom<WireType> for InternalPoint {
+            type Error = String;
+            fn try_from(w: WireType) -> Result<Self, Self::Error> {
+                Ok(Self {
+                    internal_x: w.x,
+                    internal_y: w.y,
+                })
+            }
+        }
+
+        impl From<&InternalPoint> for WireType {
+            fn from(p: &InternalPoint) -> Self {
+                Self {
+                    x: p.internal_x,
+                    y: p.internal_y,
+                }
+            }
+        }
+
+        let py = to_python::<InternalPoint>(false);
+
+        // Must NOT expose the internal fields
+        assert!(
+            !py.contains("internal_x"),
+            "proxy struct — internal field must not appear, got:\n{py}"
+        );
+        // Must use the proxy's fields
+        assert!(
+            py.contains("x: Required[float]"),
+            "proxy struct — proxy field 'x' must appear, got:\n{py}"
+        );
+        assert!(
+            py.contains("y: Required[float]"),
+            "proxy struct — proxy field 'y' must appear, got:\n{py}"
+        );
+
+        insta::assert_snapshot!(py);
+    }
+
+    #[test]
+    fn test_proxy_to_scalar() {
+        // A struct proxied to a scalar type should generate a type alias.
+        #[derive(Facet)]
+        #[facet(proxy = String)]
+        #[allow(dead_code)]
+        struct UserId(u64);
+
+        impl TryFrom<String> for UserId {
+            type Error = String;
+            fn try_from(s: String) -> Result<Self, Self::Error> {
+                s.parse::<u64>().map(UserId).map_err(|e| e.to_string())
+            }
+        }
+
+        impl From<&UserId> for String {
+            fn from(u: &UserId) -> Self {
+                u.0.to_string()
+            }
+        }
+
+        let py = to_python::<UserId>(false);
+
+        // Should be a type alias to str, not a class with an internal u64 field
+        assert!(
+            !py.contains("class UserId(TypedDict"),
+            "proxy scalar — must not generate a TypedDict class, got:\n{py}"
+        );
+        assert!(
+            py.contains("type UserId = str"),
+            "proxy scalar — should be a type alias to str, got:\n{py}"
+        );
+
+        insta::assert_snapshot!(py);
+    }
+
+    #[test]
+    fn test_proxy_to_untagged_enum() {
+        // The bug-report case: a struct proxied to an untagged enum.
+        // facet-json serializes via the proxy, so the Python type must match the
+        // untagged enum's union — NOT the struct's internal fields.
+        #[derive(Facet, Clone)]
+        struct Payload {
+            x: f64,
+            y: f64,
+        }
+
+        #[derive(Facet, Clone)]
+        #[facet(untagged)]
+        #[repr(C)]
+        #[allow(dead_code)]
+        enum ProxyEnum {
+            Variant(Payload),
+            Constant { constant: f64 },
+        }
+
+        #[derive(Facet)]
+        #[facet(proxy = ProxyEnum)]
+        #[allow(dead_code)]
+        struct MyStruct {
+            inner: Payload,
+        }
+
+        impl TryFrom<ProxyEnum> for MyStruct {
+            type Error = String;
+            fn try_from(p: ProxyEnum) -> Result<Self, Self::Error> {
+                match p {
+                    ProxyEnum::Variant(payload) => Ok(Self { inner: payload }),
+                    ProxyEnum::Constant { .. } => Err("cannot build".into()),
+                }
+            }
+        }
+
+        impl From<&MyStruct> for ProxyEnum {
+            fn from(s: &MyStruct) -> Self {
+                ProxyEnum::Variant(s.inner.clone())
+            }
+        }
+
+        let py = to_python::<MyStruct>(false);
+
+        // Must NOT expose the internal 'inner' field
+        assert!(
+            !py.contains("inner: Required"),
+            "proxy untagged enum — internal field must not appear, got:\n{py}"
+        );
+        // Must NOT generate a TypedDict class for MyStruct
+        assert!(
+            !py.contains("class MyStruct(TypedDict"),
+            "proxy untagged enum — must not be a single TypedDict class, got:\n{py}"
+        );
+        // Must be a union type alias (from the untagged enum)
+        assert!(
+            py.contains("type MyStruct"),
+            "proxy untagged enum — should be a union type alias, got:\n{py}"
+        );
+
         insta::assert_snapshot!(py);
     }
 }
