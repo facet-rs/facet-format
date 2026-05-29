@@ -61,6 +61,10 @@ name = "facet-python"
 changelog_path = "CHANGELOG.md"
 
 [[package]]
+name = "facet-zod"
+changelog_path = "CHANGELOG.md"
+
+[[package]]
 name = "facet-json-classics"
 release = false
 publish = false

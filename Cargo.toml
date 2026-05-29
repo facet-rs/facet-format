@@ -16,6 +16,7 @@ members = [
   "facet-typescript",
   "facet-python",
   "facet-value",
+  "facet-zod",
 ]
 resolver = "3"
 
