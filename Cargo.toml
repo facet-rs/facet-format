@@ -15,6 +15,7 @@ members = [
   "facet-json-schema",
   "facet-typescript",
   "facet-python",
+  "facet-lua",
   "facet-value",
   "facet-zod",
 ]
