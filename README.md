@@ -1,5 +1,15 @@
 # facet-format
 
+> [!IMPORTANT]
+> The `facet-format` workspace has moved into the Facet monorepo.
+>
+> New source location:
+> <https://github.com/facet-rs/facet/tree/main/facet-format>
+>
+> Please file issues and pull requests against
+> <https://github.com/facet-rs/facet>. This repository is kept only as a
+> historical redirect before archival.
+
 Format crates for the [`facet`](https://github.com/facet-rs/facet) ecosystem.
 
 This repository hosts:
