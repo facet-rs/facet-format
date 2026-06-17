@@ -7,6 +7,118 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.50.0-rc.0](https://github.com/facet-rs/facet-format/compare/facet-zod-v0.46.5...facet-zod-v0.50.0-rc.0) - 2026-06-09
+
+### Added
+
+- add facet-zod (relocated from facet-rs/facet)
+
+### Other
+
+- prepare facet-format 0.50.0-rc.0
+
+## [0.50.0-rc.0](https://github.com/facet-rs/facet-format/compare/facet-python-v0.46.0...facet-python-v0.50.0-rc.0) - 2026-06-09
+
+### Other
+
+- prepare facet-format 0.50.0-rc.0
+
+## [0.50.0-rc.0](https://github.com/facet-rs/facet-format/compare/facet-typescript-v0.46.0...facet-typescript-v0.50.0-rc.0) - 2026-06-09
+
+### Other
+
+- prepare facet-format 0.50.0-rc.0
+- Short doc comment format for TypeScript
+
+## [0.50.0-rc.0](https://github.com/facet-rs/facet-format/compare/facet-json-schema-v0.46.1...facet-json-schema-v0.50.0-rc.0) - 2026-06-09
+
+### Other
+
+- prepare facet-format 0.50.0-rc.0
+
+## [0.50.0-rc.0](https://github.com/facet-rs/facet-format/compare/facet-xdr-v0.46.1...facet-xdr-v0.50.0-rc.0) - 2026-06-09
+
+### Other
+
+- prepare facet-format 0.50.0-rc.0
+- [**breaking**] mark public enums/structs #[non_exhaustive] for 1.0 readiness
+
+## [0.50.0-rc.0](https://github.com/facet-rs/facet-format/compare/facet-csv-v0.46.1...facet-csv-v0.50.0-rc.0) - 2026-06-09
+
+### Other
+
+- prepare facet-format 0.50.0-rc.0
+- [**breaking**] mark public enums/structs #[non_exhaustive] for 1.0 readiness
+
+## [0.50.0-rc.0](https://github.com/facet-rs/facet-format/compare/facet-asn1-v0.46.1...facet-asn1-v0.50.0-rc.0) - 2026-06-09
+
+### Other
+
+- prepare facet-format 0.50.0-rc.0
+- [**breaking**] mark public enums/structs #[non_exhaustive] for 1.0 readiness
+
+## [0.50.0-rc.0](https://github.com/facet-rs/facet-format/compare/facet-yaml-v0.46.1...facet-yaml-v0.50.0-rc.0) - 2026-06-09
+
+### Other
+
+- prepare facet-format 0.50.0-rc.0
+- [**breaking**] mark public enums/structs #[non_exhaustive] for 1.0 readiness
+
+## [0.50.0-rc.0](https://github.com/facet-rs/facet-format/compare/facet-toml-v0.46.1...facet-toml-v0.50.0-rc.0) - 2026-06-09
+
+### Other
+
+- prepare facet-format 0.50.0-rc.0
+- [**breaking**] mark public enums/structs #[non_exhaustive] for 1.0 readiness
+
+## [0.50.0-rc.0](https://github.com/facet-rs/facet-format/compare/facet-msgpack-v0.46.1...facet-msgpack-v0.50.0-rc.0) - 2026-06-09
+
+### Other
+
+- prepare facet-format 0.50.0-rc.0
+- [**breaking**] mark public enums/structs #[non_exhaustive] for 1.0 readiness
+
+## [0.50.0-rc.0](https://github.com/facet-rs/facet-format/compare/facet-postcard-v0.46.1...facet-postcard-v0.50.0-rc.0) - 2026-06-09
+
+### Other
+
+- prepare facet-format 0.50.0-rc.0
+- [**breaking**] mark public enums/structs #[non_exhaustive] for 1.0 readiness
+
+## [0.50.0-rc.0](https://github.com/facet-rs/facet-format/compare/facet-value-v0.46.0...facet-value-v0.50.0-rc.0) - 2026-06-09
+
+### Added
+
+- add 128-bit integers and native char to Value
+
+### Other
+
+- prepare facet-format 0.50.0-rc.0
+- wildcard arms for facet-core's sealed enums
+- [**breaking**] mark public enums/structs #[non_exhaustive] for 1.0 readiness
+
+## [0.50.0-rc.0](https://github.com/facet-rs/facet-format/compare/facet-json-v0.46.1...facet-json-v0.50.0-rc.0) - 2026-06-09
+
+### Other
+
+- prepare facet-format 0.50.0-rc.0
+- [**breaking**] mark public enums/structs #[non_exhaustive] for 1.0 readiness
+
+## [0.50.0-rc.0](https://github.com/facet-rs/facet-format/compare/facet-format-v0.47.1...facet-format-v0.50.0-rc.0) - 2026-06-09
+
+### Other
+
+- prepare facet-format 0.50.0-rc.0
+- wildcard arms for facet-core's sealed enums
+- [**breaking**] mark public enums/structs #[non_exhaustive] for 1.0 readiness
+
+## [0.50.0-rc.0](https://github.com/facet-rs/facet-format/compare/facet-dessert-v0.46.0...facet-dessert-v0.50.0-rc.0) - 2026-06-09
+
+### Other
+
+- prepare facet-format 0.50.0-rc.0
+- [**breaking**] mark public enums/structs #[non_exhaustive] for 1.0 readiness
+
 ## [0.46.1](https://github.com/facet-rs/facet-format/compare/facet-json-schema-v0.46.0...facet-json-schema-v0.46.1) - 2026-05-06
 
 ### Other
