@@ -67,7 +67,6 @@ pub use serializer::{
     to_string_with_options, to_vec, to_vec_pretty, to_vec_with_options, to_writer_std,
     to_writer_std_pretty, to_writer_std_with_options,
 };
-
 // Re-export DeserializeError for convenience
 pub use facet_format::DeserializeError;
 

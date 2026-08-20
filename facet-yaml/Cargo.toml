@@ -1,6 +1,6 @@
 [package]
 name = "facet-yaml"
-version = "0.50.0-rc.0"
+version = "0.50.0-rc.6"
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
@@ -17,10 +17,10 @@ rustdoc-args = ["--html-in-header", "arborium-header.html"]
 rustdoc-args = ["--html-in-header", "arborium-header.html"]
 
 [dependencies]
-facet = { workspace = true }
-facet-core = { workspace = true }
-facet-format = { path = "../facet-format", version = "0.50.0-rc.0" }
-facet-reflect = { workspace = true }
+facet.workspace = true
+facet-core.workspace = true
+facet-format = { path = "../facet-format", version = "0.50.0-rc.6" }
+facet-reflect.workspace = true
 saphyr-parser = "0.0.6"
 zmij = { version = "1", optional = true }
 itoa = { version = "1", optional = true }
@@ -34,7 +34,7 @@ http-body-util = { version = "0.1", default-features = false, optional = true }
 datatest-stable = "0.3"
 divan = { workspace = true }
 facet = { workspace = true, features = ["std", "doc", "net", "iddqd"] }
-facet-default = { workspace = true }
+facet-default.workspace = true
 facet-format = { path = "../facet-format", features = ["net"] }
 facet-format-suite = { path = "../facet-format-suite", features = [
   "third-party",
@@ -70,7 +70,7 @@ iddqd = ["facet/iddqd"]
 axum = ["std", "dep:axum-core", "dep:http", "dep:http-body-util"]
 
 # yoke support
-yoke = ["facet-core/yoke"]
+yoke = ["facet-core/yoke", "facet-format-suite/yoke"]
 
 [lints]
 workspace = true

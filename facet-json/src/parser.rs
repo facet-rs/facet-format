@@ -1,6 +1,7 @@
 extern crate alloc;
 
 use alloc::{borrow::Cow, collections::VecDeque, format, vec::Vec};
+use core::str;
 
 use facet_core::Facet as _;
 use facet_format::{
@@ -27,15 +28,24 @@ fn scan_error_to_parse_error(err: ScanError) -> ParseError {
     ParseError::new(err.span, kind)
 }
 
-/// Materialized token ready for the parser.
-#[derive(Debug, Clone)]
-pub struct MaterializedToken<'de> {
-    pub kind: TokenKind<'de>,
-    pub span: Span,
+fn invalid_utf8_parse_error(span: Span) -> ParseError {
+    ParseError::new(
+        span,
+        DeserializeErrorKind::InvalidUtf8 {
+            context: [0u8; 16],
+            context_len: 0,
+        },
+    )
 }
 
 #[derive(Debug, Clone)]
-pub enum TokenKind<'de> {
+struct MaterializedToken<'de> {
+    kind: TokenKind<'de>,
+    span: Span,
+}
+
+#[derive(Debug, Clone)]
+enum TokenKind<'de> {
     ObjectStart,
     ObjectEnd,
     ArrayStart,
@@ -52,6 +62,21 @@ pub enum TokenKind<'de> {
     I128(i128),
     F64(f64),
     Eof,
+}
+
+#[derive(Debug, Clone)]
+enum JsonValueStart<'de> {
+    Object(Span),
+    Array(Span),
+    Scalar(ScalarValue<'de>, Span),
+}
+
+impl JsonValueStart<'_> {
+    fn span(&self) -> Span {
+        match self {
+            Self::Object(span) | Self::Array(span) | Self::Scalar(_, span) => *span,
+        }
+    }
 }
 
 /// Mutable parser state that can be saved and restored.
@@ -165,23 +190,47 @@ impl<'de, const TRUSTED_UTF8: bool> JsonParser<'de, TRUSTED_UTF8> {
     /// Scan and materialize the next token directly.
     #[inline]
     fn consume_token(&mut self) -> Result<MaterializedToken<'de>, ParseError> {
-        let mut spanned = self
+        let spanned = self.consume_spanned_token()?;
+        let span = spanned.span;
+        let kind = self.materialize_token_kind(spanned.token, span)?;
+
+        Ok(MaterializedToken { kind, span })
+    }
+
+    #[inline]
+    fn consume_spanned_token(&mut self) -> Result<scanner::SpannedToken, ParseError> {
+        let spanned = self
             .scanner
             .next_token(self.input)
             .map_err(scan_error_to_parse_error)?;
 
-        // Handle NeedMore by finalizing - we have full input so this is true EOF
-        if matches!(spanned.token, ScanToken::NeedMore { .. }) {
-            spanned = self
-                .scanner
-                .finalize_at_eof(self.input)
-                .map_err(scan_error_to_parse_error)?;
-        }
-
         self.state.last_token_start = spanned.span.offset as usize;
         self.state.scanner_pos = self.scanner.pos();
 
-        let kind = match spanned.token {
+        Ok(spanned)
+    }
+
+    #[inline]
+    fn consume_punctuation_token(&mut self, byte: u8) -> Result<Option<Span>, ParseError> {
+        let span = self
+            .scanner
+            .consume_punctuation(self.input, byte)
+            .map_err(scan_error_to_parse_error)?;
+
+        if let Some(span) = span {
+            self.state.last_token_start = span.offset as usize;
+            self.state.scanner_pos = self.scanner.pos();
+        }
+
+        Ok(span)
+    }
+
+    fn materialize_token_kind(
+        &self,
+        token: ScanToken,
+        span: Span,
+    ) -> Result<TokenKind<'de>, ParseError> {
+        let kind = match token {
             ScanToken::ObjectStart => TokenKind::ObjectStart,
             ScanToken::ObjectEnd => TokenKind::ObjectEnd,
             ScanToken::ArrayStart => TokenKind::ArrayStart,
@@ -195,56 +244,9 @@ impl<'de, const TRUSTED_UTF8: bool> JsonParser<'de, TRUSTED_UTF8> {
                 start,
                 end,
                 has_escapes,
-            } => {
-                let s = if !has_escapes {
-                    if TRUSTED_UTF8 {
-                        // SAFETY: Caller guarantees input is valid UTF-8
-                        unsafe { scanner::decode_string_borrowed_unchecked(self.input, start, end) }
-                            .map(Cow::Borrowed)
-                            .ok_or_else(|| {
-                                ParseError::new(
-                                    spanned.span,
-                                    DeserializeErrorKind::InvalidUtf8 {
-                                        context: [0u8; 16],
-                                        context_len: 0,
-                                    },
-                                )
-                            })?
-                    } else {
-                        scanner::decode_string_borrowed(self.input, start, end)
-                            .map(Cow::Borrowed)
-                            .ok_or_else(|| {
-                                ParseError::new(
-                                    spanned.span,
-                                    DeserializeErrorKind::InvalidUtf8 {
-                                        context: [0u8; 16],
-                                        context_len: 0,
-                                    },
-                                )
-                            })?
-                    }
-                } else if TRUSTED_UTF8 {
-                    // SAFETY: Caller guarantees input is valid UTF-8
-                    Cow::Owned(
-                        unsafe { scanner::decode_string_owned_unchecked(self.input, start, end) }
-                            .map_err(scan_error_to_parse_error)?,
-                    )
-                } else {
-                    Cow::Owned(
-                        scanner::decode_string_owned(self.input, start, end)
-                            .map_err(scan_error_to_parse_error)?,
-                    )
-                };
-                TokenKind::String(s)
-            }
+            } => TokenKind::String(self.decode_string(start, end, has_escapes, span)?),
             ScanToken::Number { start, end, hint } => {
-                let parsed = if TRUSTED_UTF8 {
-                    // SAFETY: Input came from &str, so it's valid UTF-8
-                    unsafe { scanner::parse_number_unchecked(self.input, start, end, hint) }
-                } else {
-                    scanner::parse_number(self.input, start, end, hint)
-                }
-                .map_err(scan_error_to_parse_error)?;
+                let parsed = self.parse_number(start, end, hint)?;
                 match parsed {
                     ParsedNumber::U64(n) => TokenKind::U64(n),
                     ParsedNumber::I64(n) => TokenKind::I64(n),
@@ -254,19 +256,89 @@ impl<'de, const TRUSTED_UTF8: bool> JsonParser<'de, TRUSTED_UTF8> {
                 }
             }
             ScanToken::Eof => TokenKind::Eof,
-            ScanToken::NeedMore { .. } => unreachable!("handled above"),
         };
-
-        Ok(MaterializedToken {
-            kind,
-            span: spanned.span,
-        })
+        Ok(kind)
     }
 
-    fn expect_colon(&mut self) -> Result<(), ParseError> {
-        let token = self.consume_token()?;
-        if !matches!(token.kind, TokenKind::Colon) {
-            return Err(self.unexpected(&token, "':'"));
+    pub(crate) fn parse_number(
+        &self,
+        start: usize,
+        end: usize,
+        hint: scanner::NumberHint,
+    ) -> Result<ParsedNumber, ParseError> {
+        if TRUSTED_UTF8 {
+            // SAFETY: Input came from &str, so it's valid UTF-8
+            unsafe { scanner::parse_number_unchecked(self.input, start, end, hint) }
+        } else {
+            scanner::parse_number(self.input, start, end, hint)
+        }
+        .map_err(scan_error_to_parse_error)
+    }
+
+    #[inline]
+    pub(crate) fn decode_string(
+        &self,
+        start: usize,
+        end: usize,
+        has_escapes: bool,
+        span: Span,
+    ) -> Result<Cow<'de, str>, ParseError> {
+        if !has_escapes {
+            self.borrow_string_no_escapes(start, end, span)
+                .map(Cow::Borrowed)
+        } else if TRUSTED_UTF8 {
+            // SAFETY: Caller guarantees input is valid UTF-8
+            Ok(Cow::Owned(
+                unsafe { scanner::decode_string_owned_unchecked(self.input, start, end) }
+                    .map_err(scan_error_to_parse_error)?,
+            ))
+        } else {
+            Ok(Cow::Owned(
+                scanner::decode_string_owned(self.input, start, end)
+                    .map_err(scan_error_to_parse_error)?,
+            ))
+        }
+    }
+
+    #[inline]
+    fn borrow_string_no_escapes(
+        &self,
+        start: usize,
+        end: usize,
+        span: Span,
+    ) -> Result<&'de str, ParseError> {
+        let slice = &self.input[start..end];
+        if TRUSTED_UTF8 {
+            // SAFETY: The input came from &str, and the scanner already reported
+            // this token as a string without escapes.
+            Ok(unsafe { core::str::from_utf8_unchecked(slice) })
+        } else {
+            core::str::from_utf8(slice).map_err(|_| invalid_utf8_parse_error(span))
+        }
+    }
+
+    fn unexpected_scan_token(
+        &self,
+        token: &scanner::SpannedToken,
+        expected: &'static str,
+    ) -> ParseError {
+        ParseError::new(
+            token.span,
+            DeserializeErrorKind::UnexpectedToken {
+                got: format!("{:?}", token.token).into(),
+                expected,
+            },
+        )
+    }
+
+    fn expect_colon_token(&mut self) -> Result<(), ParseError> {
+        if self.consume_punctuation_token(b':')?.is_some() {
+            return Ok(());
+        }
+
+        let token = self.consume_spanned_token()?;
+        if !matches!(token.token, ScanToken::Colon) {
+            return Err(self.unexpected_scan_token(&token, "':'"));
         }
         Ok(())
     }
@@ -275,6 +347,20 @@ impl<'de, const TRUSTED_UTF8: bool> JsonParser<'de, TRUSTED_UTF8> {
         &mut self,
         first: Option<MaterializedToken<'de>>,
     ) -> Result<ParseEvent<'de>, ParseError> {
+        let value = self.parse_direct_value_start_with_token(first)?;
+        let span = value.span();
+        let kind = match value {
+            JsonValueStart::Object(_) => ParseEventKind::StructStart(ContainerKind::Object),
+            JsonValueStart::Array(_) => ParseEventKind::SequenceStart(ContainerKind::Array),
+            JsonValueStart::Scalar(scalar, _) => ParseEventKind::Scalar(scalar),
+        };
+        Ok(ParseEvent::new(kind, span))
+    }
+
+    fn parse_direct_value_start_with_token(
+        &mut self,
+        first: Option<MaterializedToken<'de>>,
+    ) -> Result<JsonValueStart<'de>, ParseError> {
         let token = match first {
             Some(tok) => tok,
             None => self.consume_token()?,
@@ -288,80 +374,55 @@ impl<'de, const TRUSTED_UTF8: bool> JsonParser<'de, TRUSTED_UTF8> {
                 self.state
                     .stack
                     .push(ContextState::Object(ObjectState::KeyOrEnd));
-                Ok(ParseEvent::new(
-                    ParseEventKind::StructStart(ContainerKind::Object),
-                    span,
-                ))
+                Ok(JsonValueStart::Object(span))
             }
             TokenKind::ArrayStart => {
                 self.state
                     .stack
                     .push(ContextState::Array(ArrayState::ValueOrEnd));
-                Ok(ParseEvent::new(
-                    ParseEventKind::SequenceStart(ContainerKind::Array),
-                    span,
-                ))
+                Ok(JsonValueStart::Array(span))
             }
             TokenKind::String(s) => {
-                let event = ParseEvent::new(ParseEventKind::Scalar(ScalarValue::Str(s)), span);
                 self.finish_value_in_parent();
-                Ok(event)
+                Ok(JsonValueStart::Scalar(ScalarValue::Str(s), span))
             }
             TokenKind::True => {
                 self.finish_value_in_parent();
-                Ok(ParseEvent::new(
-                    ParseEventKind::Scalar(ScalarValue::Bool(true)),
-                    span,
-                ))
+                Ok(JsonValueStart::Scalar(ScalarValue::Bool(true), span))
             }
             TokenKind::False => {
                 self.finish_value_in_parent();
-                Ok(ParseEvent::new(
-                    ParseEventKind::Scalar(ScalarValue::Bool(false)),
-                    span,
-                ))
+                Ok(JsonValueStart::Scalar(ScalarValue::Bool(false), span))
             }
             TokenKind::Null => {
                 self.finish_value_in_parent();
-                Ok(ParseEvent::new(
-                    ParseEventKind::Scalar(ScalarValue::Null),
-                    span,
-                ))
+                Ok(JsonValueStart::Scalar(ScalarValue::Null, span))
             }
             TokenKind::U64(n) => {
                 self.finish_value_in_parent();
-                Ok(ParseEvent::new(
-                    ParseEventKind::Scalar(ScalarValue::U64(n)),
-                    span,
-                ))
+                Ok(JsonValueStart::Scalar(ScalarValue::U64(n), span))
             }
             TokenKind::I64(n) => {
                 self.finish_value_in_parent();
-                Ok(ParseEvent::new(
-                    ParseEventKind::Scalar(ScalarValue::I64(n)),
-                    span,
-                ))
+                Ok(JsonValueStart::Scalar(ScalarValue::I64(n), span))
             }
             TokenKind::U128(n) => {
                 self.finish_value_in_parent();
-                Ok(ParseEvent::new(
-                    ParseEventKind::Scalar(ScalarValue::Str(Cow::Owned(n.to_string()))),
+                Ok(JsonValueStart::Scalar(
+                    ScalarValue::Str(Cow::Owned(n.to_string())),
                     span,
                 ))
             }
             TokenKind::I128(n) => {
                 self.finish_value_in_parent();
-                Ok(ParseEvent::new(
-                    ParseEventKind::Scalar(ScalarValue::Str(Cow::Owned(n.to_string()))),
+                Ok(JsonValueStart::Scalar(
+                    ScalarValue::Str(Cow::Owned(n.to_string())),
                     span,
                 ))
             }
             TokenKind::F64(n) => {
                 self.finish_value_in_parent();
-                Ok(ParseEvent::new(
-                    ParseEventKind::Scalar(ScalarValue::F64(n)),
-                    span,
-                ))
+                Ok(JsonValueStart::Scalar(ScalarValue::F64(n), span))
             }
             TokenKind::ObjectEnd | TokenKind::ArrayEnd => Err(self.unexpected(&token, "value")),
             TokenKind::Comma | TokenKind::Colon => Err(self.unexpected(&token, "value")),
@@ -425,14 +486,6 @@ impl<'de, const TRUSTED_UTF8: bool> JsonParser<'de, TRUSTED_UTF8> {
                     DeserializeErrorKind::UnexpectedEof { expected: "value" },
                 ));
             }
-            ScanToken::NeedMore { .. } => {
-                return Err(ParseError::new(
-                    first.span,
-                    DeserializeErrorKind::UnexpectedEof {
-                        expected: "more data",
-                    },
-                ));
-            }
         }
 
         let end = self.scanner.pos();
@@ -481,14 +534,6 @@ impl<'de, const TRUSTED_UTF8: bool> JsonParser<'de, TRUSTED_UTF8> {
                         DeserializeErrorKind::UnexpectedEof { expected: "value" },
                     ));
                 }
-                ScanToken::NeedMore { .. } => {
-                    return Err(ParseError::new(
-                        spanned.span,
-                        DeserializeErrorKind::UnexpectedEof {
-                            expected: "more data",
-                        },
-                    ));
-                }
                 _ => {}
             }
         }
@@ -528,7 +573,7 @@ impl<'de, const TRUSTED_UTF8: bool> JsonParser<'de, TRUSTED_UTF8> {
                             return Ok(Some(ParseEvent::new(ParseEventKind::StructEnd, span)));
                         }
                         TokenKind::String(name) => {
-                            self.expect_colon()?;
+                            self.expect_colon_token()?;
                             if let Some(ContextState::Object(state)) = self.state.stack.last_mut() {
                                 *state = ObjectState::Value;
                             }
@@ -840,14 +885,6 @@ impl<'de, const TRUSTED_UTF8: bool> FormatParser<'de> for JsonParser<'de, TRUSTE
                     return Err(ParseError::new(
                         first.span,
                         DeserializeErrorKind::UnexpectedEof { expected: "value" },
-                    ));
-                }
-                ScanToken::NeedMore { .. } => {
-                    return Err(ParseError::new(
-                        first.span,
-                        DeserializeErrorKind::UnexpectedEof {
-                            expected: "more data",
-                        },
                     ));
                 }
                 _ => {

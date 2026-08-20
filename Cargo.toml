@@ -2,82 +2,236 @@
 members = [
   "facet-dessert",
   "facet-format",
-  "facet-json",
+  "facet-format-suite",
   "facet-json-classics",
-  "facet-postcard",
+  "facet-json",
   "facet-msgpack",
+  "facet-postcard",
   "facet-toml",
   "facet-yaml",
-  "facet-format-suite",
+  "facet-urlencoded",
   "facet-asn1",
   "facet-csv",
   "facet-xdr",
+  "facet-lua",
+  "facet-value",
+  "facet-dom",
+  "facet-xml",
+  "facet-xml-node",
+  "facet-atom",
+  "facet-svg",
+  "facet-singularize",
   "facet-json-schema",
   "facet-typescript",
   "facet-python",
-  "facet-value",
   "facet-zod",
+  "facet-cargo-toml",
 ]
 resolver = "3"
 
 [workspace.package]
+version = "0.50.0-rc.6"
 edition = "2024"
-rust-version = "1.90"
+rust-version = "1.92"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/facet-rs/facet-format"
+homepage = "https://facet.rs"
+documentation = "https://docs.rs/facet-format"
+keywords = ["reflection", "serialization", "deserialization"]
+categories = ["encoding", "development-tools"]
 
 [workspace.dependencies]
-# internal deps
-facet-value = { path = "facet-value", version = "0.50.0-rc.0", default-features = false, features = [
-  "std",
+facet = "0.50.0-rc.6"
+facet-core = "0.50.0-rc.6"
+facet-default = "0.50.0-rc.6"
+facet-error = "0.50.0-rc.6"
+facet-path = "0.50.0-rc.6"
+facet-pretty = "0.50.0-rc.6"
+facet-reflect = "0.50.0-rc.6"
+facet-solver = "0.50.0-rc.6"
+facet-testhelpers = "0.50.0-rc.6"
+rediff = "0.50.0-rc.6"
+facet-dessert = { path = "facet-dessert", version = "0.50.0-rc.6" }
+facet-dom = { path = "facet-dom", version = "0.50.0-rc.6" }
+facet-format = { path = "facet-format", version = "0.50.0-rc.6" }
+facet-format-suite = { path = "facet-format-suite", version = "0.50.0-rc.0" }
+facet-json = { path = "facet-json", version = "0.50.0-rc.6" }
+facet-json-classics = { path = "facet-json-classics", version = "0.50.0-rc.0" }
+facet-msgpack = { path = "facet-msgpack", version = "0.50.0-rc.6" }
+facet-postcard = { path = "facet-postcard", version = "0.50.0-rc.6" }
+facet-singularize = { path = "facet-singularize", version = "0.50.0-rc.6" }
+facet-toml = { path = "facet-toml", version = "0.50.0-rc.6" }
+facet-urlencoded = { path = "facet-urlencoded", version = "0.50.0-rc.6" }
+facet-value = { path = "facet-value", version = "0.50.0-rc.6" }
+facet-xml = { path = "facet-xml", version = "0.50.0-rc.6" }
+facet-yaml = { path = "facet-yaml", version = "0.50.0-rc.6" }
+taxon = "0.2.0-rc.5"
+cstree = { version = "0.14.0", features = ["derive"] }
+arborium = { version = "^2.4.5", default-features = false, features = [
+  "lang-json",
+  "lang-rust",
 ] }
-facet-format = { path = "facet-format", version = "0.50.0-rc.0" }
-
-# external deps
-facet = { version = "0.50.0-rc.0", default-features = false, features = ["std"] }
-facet-core = { version = "0.50.0-rc.0", default-features = false, features = ["alloc"] }
-facet-default = { version = "0.50.0-rc.0", default-features = false }
-facet-path = { version = "0.50.0-rc.0", default-features = false, features = ["alloc"] }
-facet-pretty = { version = "0.50.0-rc.0", default-features = false, features = ["alloc"] }
-facet-reflect = { version = "0.50.0-rc.0", default-features = false, features = ["alloc"] }
-facet-solver = { version = "0.50.0-rc.0", default-features = false, features = ["alloc", "suggestions"] }
-facet-testhelpers = { version = "0.50.0-rc.0", default-features = false }
-arborium = { version = "^2.4.5", default-features = false, features = ["lang-json"] }
+arborium-highlight = "^2.4.5"
+arborium-theme = "^2.4.5"
+aho-corasick = "1.1.4"
+autocfg = "^1.5.0"
+axum = { version = "0.8.9", default-features = false, features = [
+  "http1",
+  "tokio",
+  "json",
+  "ws",
+] }
+ariadne = "^0.6"
+blake3 = { version = "^1", default-features = false }
 bolero = "^0.13.4"
+brotli = "8"
 bytes = { version = "^1.11.0", default-features = false }
-bytestring = { version = "^1.5.1", default-features = false }
+bstr = { version = "^1.12.3", default-features = false, features = ["alloc"] }
+bytestring = { version = "^1.4.0", default-features = false }
+cbindgen = "^0.28"
+cc = "^1.0.87"
 camino = "^1.2.1"
 compact_str = { version = "^0.9.0", default-features = false }
 chrono = { version = "^0.4.42", default-features = false, features = ["alloc"] }
-divan = "^0.1.21"
+codegen = "^0.3"
+crossterm = "^0.29"
+datatest-stable = "0.3"
+dashmap = "^6"
+deadpool-postgres = "^0.14"
+dirs = "^6"
+divan = { package = "codspeed-divan-compat", version = "4.7.0" }
+dotenvy = "^0.15"
+eyre = "^0.6.12"
+futures = "^0.3"
+futures-channel = "0.3"
+futures-util = { version = "^0.3.31", default-features = false, features = [
+  "std",
+  "async-await",
+  "async-await-macro",
+] }
+glob = "^0.3"
+goblin = "^0.9"
+hashbrown = { version = "0.17", features = ["raw-entry"] }
+heck = "^0.5.0"
+hex = "^0.4"
 http = "^1.4.0"
+im = "^15.1.0"
 indexmap = { version = "^2.12.1", default-features = false }
-indoc = "^2.0.7"
 insta = "^1.44.3"
-jiff = "^0.2.24"
-serde = { version = "^1.0.228", default-features = false, features = ["alloc", "derive"] }
-serde_json = { version = "^1.0.145", features = ["alloc"] }
+inventory = "^0.3"
+iroh = "1.0.2"
+jiff = "^0.2.16"
+js-sys = "0.3"
+libc = "0.2.180"
+log = { version = "^0.4.29", features = ["std"] }
+lz4_flex = "^0.11"
+memmap2 = "^0.9"
+owo-colors = "^4.2.3"
+object = "^0.39"
+parking_lot = "^0.12.4"
+passfd = "0.1"
+postgres-types = "^0.2"
+prettyplease = "0.2"
+proc-macro2 = "1"
+proptest = "^1"
+quote = "1"
+ratatui = "^0.30"
+regex = { version = "1.12.4", default-features = false, features = [
+  "std",
+  "unicode",
+] }
+regex-automata = { version = "0.4.14", default-features = false, features = [
+  "std",
+  "unicode",
+  "meta",
+  "perf",
+  "hybrid",
+] }
+rowan = "^0.16"
 smartstring = { version = "^1.0.1", default-features = false }
 smol_str = { version = "^0.3.4", default-features = false }
+static_assertions = "^1.1.0"
+strsim = "0.11"
+strip-ansi-escapes = "^0.2.1"
+supports-color = "^3"
+tempfile = "^3.23.0"
+testcontainers = "^0.27"
+testcontainers-modules = { version = "^0.15", features = ["postgres"] }
+thiserror = "^2"
 time = { version = "^0.3.44", features = ["formatting", "macros", "parsing"] }
-tokio = { version = "^1.52.2", default-features = false, features = ["macros"] }
-tracing = { version = "^0.1.43", default-features = false, features = ["std"] }
+tokio = { version = "1", features = ["io-util", "rt", "rt-multi-thread"] }
+tokio-postgres = "^0.7"
+tokio-rustls = "0.26"
+tokio-test-lite = "^0.2"
+tokio-tungstenite = "^0.29"
+tower = { version = "0.5", default-features = false, features = ["util"] }
+tower-lsp = "^0.20"
+tracing = { version = "^0.1.43", default-features = false, features = [
+  "std",
+  "attributes",
+] }
+tracing-subscriber = { version = "^0.3.22", default-features = false, features = [
+  "fmt",
+  "std",
+  "env-filter",
+] }
+tree-sitter = { package = "arborium-tree-sitter", version = "2.18.0" }
+unicode-width = "^0.2.2"
+trybuild = "^1.0"
 ulid = "^1.2.1"
-uuid = "^1.23.1"
-rust_decimal = { version = "^1.38.0", default-features = false, features = ["std"] }
+unsynn = "^0.3.0"
+uuid = "^1.19.0"
+rust_decimal = { version = "^1.38.0", default-features = false, features = [
+  "std",
+] }
+rustls = "0.23"
+rustls-pemfile = "2"
+rusqlite = { version = "0.32", features = ["bundled", "hooks"] }
+smallvec = { version = "^1.15", default-features = false }
+structstruck = "0.5.1"
+syn = { version = "2", features = ["full"] }
 iddqd = { version = "^0.4.0", default-features = false }
+confusables = "^0.1"
+indoc = "^2.0.7"
+indextree = "^4"
 libtest-mimic = "^0.8.1"
+palette = { version = "^0.7", default-features = false, features = ["std"] }
+serde = { version = "^1.0.228", default-features = false, features = [
+  "alloc",
+  "derive",
+] }
+serde-wasm-bindgen = "^0.6"
+serde_json = { version = "^1.0.145", features = ["alloc"] }
+sha2 = "^0.10"
+similar = "^2"
+terminal-colorsaurus = "^1"
+wasm-bindgen = "^0.2"
+wasm-bindgen-futures = "0.4"
+wasmtimer = { version = "0.4", default-features = false }
+web-sys = "0.3"
+which = "^7"
+windows-sys = "0.61"
+xshell = "0.2"
+zerocopy = { version = "0.8", features = ["derive"] }
 
+# Allow the facet_no_doc cfg in generated code
+# See: https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html
 [workspace.lints.rust]
-unexpected_cfgs = { level = "warn", check-cfg = ["cfg(facet_no_doc)", "cfg(kani)"] }
+unexpected_cfgs = { level = "warn", check-cfg = [
+  "cfg(facet_no_doc)",
+  "cfg(kani)",
+] }
 
 [workspace.lints.clippy]
+# Box::leak is always a bug in this codebase - it hides lifetime problems instead of solving them
 disallowed_methods = "deny"
 
+# Profiling profile - release optimizations with line tables for callgrind/perf
 [profile.profiling]
 inherits = "release"
 debug = "line-tables-only"
 
+# Fuzzing profile for cargo-bolero
 [profile.fuzz]
 inherits = "dev"
 opt-level = 3
@@ -85,4 +239,33 @@ incremental = false
 codegen-units = 1
 
 [profile.dev.package.backtrace]
+opt-level = 3
+
+# Optimize dependency hot paths used by the Facet build and test suite.
+
+
+[profile.dev.package.blake3]
+opt-level = 3
+
+
+[profile.dev.package.cpufeatures]
+opt-level = 3
+
+
+[profile.dev.package.hashbrown]
+opt-level = 3
+
+[profile.dev.package.memchr]
+opt-level = 3
+
+[profile.dev.package.miniz_oxide]
+opt-level = 3
+
+[profile.dev.package.regex]
+opt-level = 3
+
+[profile.dev.package.regex-automata]
+opt-level = 3
+
+[profile.dev.package.regex-syntax]
 opt-level = 3
