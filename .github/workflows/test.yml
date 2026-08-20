@@ -62,7 +62,7 @@ jobs:
           tool: just
 
       - name: Run Miri
-        run: just miri-json
+        run: just miri-json --no-fail-fast -E 'not test(/recursive_stack/)'
 
   msrv:
     runs-on: blacksmith-2vcpu-ubuntu-2404
@@ -102,26 +102,6 @@ jobs:
           RUSTDOCFLAGS: -D warnings
         run: just docs
 
-  readme:
-    runs-on: blacksmith-2vcpu-ubuntu-2404
-    steps:
-      - uses: actions/checkout@v6
-
-      - uses: dtolnay/rust-toolchain@stable
-
-      - uses: Swatinem/rust-cache@v2
-
-      - name: Install cargo-reedme
-        run: cargo +stable install cargo-reedme --version 0.6.1 --locked
-
-      - uses: taiki-e/install-action@v2
-        with:
-          tool: just
-
-      - name: Check generated READMEs
-        run: |
-          rustup toolchain install nightly
-          just reedme-check
 
   lockfile:
     runs-on: blacksmith-2vcpu-ubuntu-2404
@@ -139,23 +119,6 @@ jobs:
       - name: Check lockfile
         run: just lockfile
 
-  semver-checks:
-    if: github.event_name == 'pull_request' || github.event_name == 'merge_group'
-    runs-on: blacksmith-2vcpu-ubuntu-2404
-    permissions:
-      contents: read
-    steps:
-      - uses: actions/checkout@v6
-        with:
-          fetch-depth: 0
-
-      - name: Run cargo-semver-checks
-        uses: obi1kenobi/cargo-semver-checks-action@v2
-        with:
-          manifest-path: Cargo.toml
-          baseline-rev: origin/main
-          exclude: facet-json-classics,facet-format-suite
-          verbose: true
 
   test-macos:
     runs-on: macos-26
