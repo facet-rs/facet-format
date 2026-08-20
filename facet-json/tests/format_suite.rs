@@ -7,9 +7,9 @@ use facet_json::{JsonParser, to_vec};
 use indoc::indoc;
 use libtest_mimic::{Arguments, Failed, Trial};
 
-struct JsonSlice;
+struct JsonSuite;
 
-impl FormatSuite for JsonSlice {
+impl FormatSuite for JsonSuite {
     type Error = DeserializeError;
 
     fn format_name() -> &'static str {
@@ -602,6 +602,9 @@ impl FormatSuite for JsonSlice {
         CaseSpec::from_str(r#"{"items":["alpha","beta"]}"#)
     }
 
+    fn indexset() -> CaseSpec {
+        CaseSpec::from_str(r#"{"items":["alpha","beta","gamma"]}"#)
+    }
     // ── Nested collection cases ──
 
     fn vec_nested() -> CaseSpec {
@@ -863,29 +866,41 @@ impl FormatSuite for JsonSlice {
 }
 
 fn main() {
-    use std::sync::Arc;
-
     facet_testhelpers::setup();
     let args = Arguments::from_args();
-    let cases: Vec<Arc<_>> = all_cases::<JsonSlice>().into_iter().map(Arc::new).collect();
-
     let mut trials: Vec<Trial> = Vec::new();
 
-    // Sync tests
+    push_suite_trials::<JsonSuite>(&mut trials);
+
+    libtest_mimic::run(&args, trials).exit()
+}
+
+fn push_suite_trials<S>(trials: &mut Vec<Trial>)
+where
+    S: FormatSuite + 'static,
+{
+    use std::sync::Arc;
+
+    let cases: Vec<Arc<_>> = all_cases::<S>().into_iter().map(Arc::new).collect();
+
     for case in &cases {
-        let name = format!("{}::{}", JsonSlice::format_name(), case.id);
+        let name = format!("{}::{}", S::format_name(), case.id);
         let skip_reason = case.skip_reason();
         let case = Arc::clone(case);
-        let mut trial = Trial::test(name, move || match case.run() {
-            CaseOutcome::Passed => Ok(()),
-            CaseOutcome::Skipped(_) => Ok(()),
-            CaseOutcome::Failed(msg) => Err(Failed::from(msg)),
+        let mut trial = Trial::test(name, move || {
+            if skip_reason.is_some() {
+                return Ok(());
+            }
+
+            match case.run() {
+                CaseOutcome::Passed => Ok(()),
+                CaseOutcome::Skipped(_) => Ok(()),
+                CaseOutcome::Failed(msg) => Err(Failed::from(msg)),
+            }
         });
         if skip_reason.is_some() {
             trial = trial.with_ignored_flag(true);
         }
         trials.push(trial);
     }
-
-    libtest_mimic::run(&args, trials).exit()
 }

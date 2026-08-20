@@ -38,17 +38,7 @@ impl<'parser, 'input, const BORROW: bool> FormatDeserializer<'parser, 'input, BO
         &mut self,
         wip: Partial<'input, BORROW>,
     ) -> Result<Partial<'input, BORROW>, DeserializeError> {
-        #[cfg(feature = "stacker")]
-        {
-            stacker::maybe_grow(1024 * 1024, 8 * 1024 * 1024, || {
-                self.deserialize_struct_simple_inner(wip)
-            })
-        }
-
-        #[cfg(not(feature = "stacker"))]
-        {
-            self.deserialize_struct_simple_inner(wip)
-        }
+        self.deserialize_struct_simple_inner(wip)
     }
 
     #[inline(never)]
@@ -120,6 +110,7 @@ impl<'parser, 'input, const BORROW: bool> FormatDeserializer<'parser, 'input, BO
         let deny_unknown_fields = wip.struct_plan().unwrap().deny_unknown_fields;
 
         let mut ordered_field_index = 0usize;
+        let mut seen_fields = (!wip.is_deferred()).then(|| vec![None; struct_def.fields.len()]);
 
         loop {
             let event = self.expect_event("value")?;
@@ -139,7 +130,7 @@ impl<'parser, 'input, const BORROW: bool> FormatDeserializer<'parser, 'input, BO
                     if idx < struct_def.fields.len() {
                         wip = wip
                             .begin_nth_field(idx)?
-                            .with(|w| self.deserialize_into(w, MetaSource::FromEvents))?
+                            .with(|w| self.deserialize_into_inner(w, MetaSource::FromEvents))?
                             .end()?;
                     }
                 }
@@ -158,6 +149,21 @@ impl<'parser, 'input, const BORROW: bool> FormatDeserializer<'parser, 'input, BO
 
                     // Look up field by name/alias using precomputed TypePlan lookup
                     if let Some(idx) = lookup_field(&wip, struct_def, key_name) {
+                        if let Some(seen_fields) = seen_fields.as_mut() {
+                            if let Some(first_span) = seen_fields[idx] {
+                                return Err(self.mk_err(
+                                    &wip,
+                                    DeserializeErrorKind::DuplicateField {
+                                        field: struct_def.fields[idx]
+                                            .effective_name()
+                                            .to_owned()
+                                            .into(),
+                                        first_span: Some(first_span),
+                                    },
+                                ));
+                            }
+                            seen_fields[idx] = Some(self.last_span);
+                        }
                         trace!(
                             idx,
                             field_name = struct_def.fields[idx].name,
@@ -180,7 +186,7 @@ impl<'parser, 'input, const BORROW: bool> FormatDeserializer<'parser, 'input, BO
                         let meta = meta_builder.build();
 
                         wip = wip.begin_nth_field(idx)?;
-                        wip = self.deserialize_into(wip, MetaSource::Owned(meta))?;
+                        wip = self.deserialize_into_inner(wip, MetaSource::Owned(meta))?;
 
                         let _guard = SpanGuard::new(self.last_span);
                         wip = wip.end()?;

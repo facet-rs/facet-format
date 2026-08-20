@@ -1,6 +1,6 @@
 [package]
 name = "facet-toml"
-version = "0.50.0-rc.0"
+version = "0.50.0-rc.6"
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
@@ -17,9 +17,9 @@ rustdoc-args = ["--html-in-header", "arborium-header.html"]
 rustdoc-args = ["--html-in-header", "arborium-header.html"]
 
 [dependencies]
-facet-core = { workspace = true }
-facet-format = { path = "../facet-format", version = "0.50.0-rc.0" }
-facet-reflect = { workspace = true }
+facet-core.workspace = true
+facet-format = { path = "../facet-format", version = "0.50.0-rc.6" }
+facet-reflect.workspace = true
 zmij = { version = "1", optional = true }
 itoa = { version = "1", optional = true }
 
@@ -41,7 +41,7 @@ facet-format-suite = { path = "../facet-format-suite", features = [
 ] }
 facet-json-classics = { path = "../facet-json-classics" }
 facet-value = { path = "../facet-value" }
-facet-testhelpers = { workspace = true }
+facet-testhelpers.workspace = true
 facet-reflect = { workspace = true, features = ["tracing"] }
 libtest-mimic = "0.8.1"
 indoc = { workspace = true }
@@ -62,7 +62,7 @@ iddqd = ["facet-core/iddqd"]
 axum = ["std", "serialize", "dep:axum-core", "dep:http", "dep:http-body-util"]
 
 # yoke support
-yoke = ["facet-core/yoke"]
+yoke = ["facet-core/yoke", "facet-format-suite/yoke"]
 
 [[test]]
 name = "format_suite"

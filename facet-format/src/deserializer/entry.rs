@@ -8,11 +8,6 @@ use crate::{
     FormatDeserializer, ParseEventKind, ScalarTypeHint, ScalarValue, SpanGuard, ValueMeta,
 };
 
-#[cfg(feature = "stacker")]
-const DESERIALIZE_STACK_RED_ZONE: usize = 8 * 1024 * 1024;
-#[cfg(feature = "stacker")]
-const DESERIALIZE_STACK_SEGMENT: usize = 32 * 1024 * 1024;
-
 /// Specifies where metadata should come from during deserialization.
 #[derive(Debug, Clone, Default)]
 #[non_exhaustive]
@@ -72,23 +67,11 @@ impl<'parser, 'input, const BORROW: bool> FormatDeserializer<'parser, 'input, BO
         wip: Partial<'input, BORROW>,
         meta: MetaSource<'input>,
     ) -> Result<Partial<'input, BORROW>, DeserializeError> {
-        #[cfg(feature = "stacker")]
-        {
-            stacker::maybe_grow(
-                DESERIALIZE_STACK_RED_ZONE,
-                DESERIALIZE_STACK_SEGMENT,
-                || self.deserialize_into_inner(wip, meta),
-            )
-        }
-
-        #[cfg(not(feature = "stacker"))]
-        {
-            self.deserialize_into_inner(wip, meta)
-        }
+        self.deserialize_into_inner(wip, meta)
     }
 
     #[inline(never)]
-    fn deserialize_into_inner(
+    pub(crate) fn deserialize_into_inner(
         &mut self,
         wip: Partial<'input, BORROW>,
         meta: MetaSource<'input>,
@@ -138,20 +121,9 @@ impl<'parser, 'input, const BORROW: bool> FormatDeserializer<'parser, 'input, BO
         trace!(?strategy, "deserialize_into: using precomputed strategy");
 
         match strategy {
-            Some(DeserStrategy::ContainerProxy) => {
-                // Container-level proxy - the type itself has #[facet(proxy = X)]
-                let format_ns = self.parser.format_namespace();
-                let (wip, _) =
-                    wip.begin_custom_deserialization_from_shape_with_format(format_ns)?;
-                Ok(wip.with(|w| self.deserialize_into(w, meta))?.end()?)
-            }
+            Some(DeserStrategy::ContainerProxy) => self.deserialize_container_proxy(wip, meta),
 
-            Some(DeserStrategy::FieldProxy) => {
-                // Field-level proxy - the field has #[facet(proxy = X)]
-                let format_ns = self.parser.format_namespace();
-                let wip = wip.begin_custom_deserialization_with_format(format_ns)?;
-                Ok(wip.with(|w| self.deserialize_into(w, meta))?.end()?)
-            }
+            Some(DeserStrategy::FieldProxy) => self.deserialize_field_proxy(wip, meta),
 
             Some(DeserStrategy::Pointer { .. }) => {
                 trace!("deserialize_into: dispatching to deserialize_pointer");
@@ -160,10 +132,7 @@ impl<'parser, 'input, const BORROW: bool> FormatDeserializer<'parser, 'input, BO
 
             Some(DeserStrategy::TransparentConvert { .. }) => {
                 trace!("deserialize_into: dispatching via begin_inner (transparent convert)");
-                Ok(wip
-                    .begin_inner()?
-                    .with(|w| self.deserialize_into(w, meta))?
-                    .end()?)
+                self.deserialize_transparent_convert(wip, meta)
             }
 
             Some(DeserStrategy::Scalar {
@@ -243,107 +212,164 @@ impl<'parser, 'input, const BORROW: bool> FormatDeserializer<'parser, 'input, BO
                 unreachable!("deser_strategy() should resolve BackRef to target strategy")
             }
 
-            Some(DeserStrategy::Opaque) => {
-                if let Some(adapter) = shape.opaque_adapter {
-                    let trailing_opaque = wip
-                        .nearest_field()
-                        .is_some_and(|f| f.has_builtin_attr("trailing"));
+            Some(DeserStrategy::Opaque) => self.deserialize_opaque(wip),
 
-                    if self.is_non_self_describing() {
-                        let handled = if trailing_opaque {
-                            self.parser.hint_remaining_byte_sequence()
-                        } else {
-                            self.parser.hint_byte_sequence()
-                        };
-                        if !handled {
-                            self.parser.hint_scalar_type(ScalarTypeHint::Bytes);
-                        }
-                    }
+            Some(DeserStrategy::OpaquePointer) => self.unsupported_opaque_pointer(shape),
 
-                    let expected = if trailing_opaque {
-                        "remaining bytes for trailing opaque adapter"
-                    } else {
-                        "bytes for opaque adapter"
-                    };
-                    let event = self.expect_event(expected)?;
-                    let input = match event.kind {
-                        ParseEventKind::Scalar(ScalarValue::Bytes(bytes)) => {
-                            if BORROW {
-                                match bytes {
-                                    Cow::Borrowed(b) => OpaqueDeserialize::Borrowed(b),
-                                    Cow::Owned(v) => OpaqueDeserialize::Owned(v),
-                                }
-                            } else {
-                                OpaqueDeserialize::Owned(bytes.into_owned())
-                            }
-                        }
-                        _ => {
-                            return Err(self.mk_err(
-                                &wip,
-                                DeserializeErrorKind::UnexpectedToken {
-                                    expected,
-                                    got: event.kind_name().into(),
-                                },
-                            ));
-                        }
-                    };
+            // A deserialization strategy variant added since this match was written.
+            Some(_) => self.unsupported_strategy(shape),
 
-                    let adapter = *adapter;
-                    #[allow(unsafe_code)]
-                    let wip = unsafe {
-                        wip.set_from_function(move |target| {
-                            match (adapter.deserialize)(input, target) {
-                                Ok(_) => Ok(()),
-                                Err(message) => Err(ReflectErrorKind::OperationFailedOwned {
-                                    shape,
-                                    operation: format!(
-                                        "opaque adapter deserialize failed: {message}"
-                                    ),
-                                }),
-                            }
-                        })?
-                    };
-                    Ok(wip)
-                } else {
-                    Err(DeserializeErrorKind::Unsupported {
-                        message: format!(
-                            "cannot deserialize opaque type {} - add a proxy or opaque adapter",
-                            shape
-                        )
-                        .into(),
-                    }
-                    .with_span(self.last_span))
-                }
-            }
+            None => self.missing_strategy(shape),
+        }
+    }
 
-            Some(DeserStrategy::OpaquePointer) => Err(DeserializeErrorKind::Unsupported {
+    #[inline(never)]
+    fn deserialize_container_proxy(
+        &mut self,
+        wip: Partial<'input, BORROW>,
+        meta: MetaSource<'input>,
+    ) -> Result<Partial<'input, BORROW>, DeserializeError> {
+        let format_ns = self.parser.format_namespace();
+        let (wip, _) = wip.begin_custom_deserialization_from_shape_with_format(format_ns)?;
+        Ok(wip.with(|w| self.deserialize_into(w, meta))?.end()?)
+    }
+
+    #[inline(never)]
+    fn deserialize_field_proxy(
+        &mut self,
+        wip: Partial<'input, BORROW>,
+        meta: MetaSource<'input>,
+    ) -> Result<Partial<'input, BORROW>, DeserializeError> {
+        let format_ns = self.parser.format_namespace();
+        let wip = wip.begin_custom_deserialization_with_format(format_ns)?;
+        Ok(wip.with(|w| self.deserialize_into(w, meta))?.end()?)
+    }
+
+    #[inline(never)]
+    fn deserialize_transparent_convert(
+        &mut self,
+        wip: Partial<'input, BORROW>,
+        meta: MetaSource<'input>,
+    ) -> Result<Partial<'input, BORROW>, DeserializeError> {
+        Ok(wip
+            .begin_inner()?
+            .with(|w| self.deserialize_into(w, meta))?
+            .end()?)
+    }
+
+    #[inline(never)]
+    fn deserialize_opaque(
+        &mut self,
+        wip: Partial<'input, BORROW>,
+    ) -> Result<Partial<'input, BORROW>, DeserializeError> {
+        let shape = wip.shape();
+        let Some(adapter) = shape.opaque_adapter else {
+            return Err(DeserializeErrorKind::Unsupported {
                 message: format!(
-                    "cannot deserialize opaque type {} - add a proxy to make it deserializable",
+                    "cannot deserialize opaque type {} - add a proxy or opaque adapter",
                     shape
                 )
                 .into(),
             }
-            .with_span(self.last_span)),
+            .with_span(self.last_span));
+        };
 
-            // A deserialization strategy variant added since this match was written.
-            Some(_) => Err(DeserializeErrorKind::Unsupported {
-                message: format!("unsupported deserialization strategy for {:?}", shape.def).into(),
-            }
-            .with_span(self.last_span)),
+        let trailing_opaque = wip
+            .nearest_field()
+            .is_some_and(|f| f.has_builtin_attr("trailing"));
 
-            None => {
-                // This should not happen - TypePlan::build errors at allocation time for
-                // unsupported types. If we get here, something went wrong with plan tracking.
-                Err(DeserializeErrorKind::Unsupported {
-                    message: format!(
-                        "missing deserialization strategy for shape: {:?} (TypePlan bug)",
-                        shape.def
-                    )
-                    .into(),
-                }
-                .with_span(self.last_span))
+        if self.is_non_self_describing() {
+            let handled = if trailing_opaque {
+                self.parser.hint_remaining_byte_sequence()
+            } else {
+                self.parser.hint_byte_sequence()
+            };
+            if !handled {
+                self.parser.hint_scalar_type(ScalarTypeHint::Bytes);
             }
         }
+
+        let expected = if trailing_opaque {
+            "remaining bytes for trailing opaque adapter"
+        } else {
+            "bytes for opaque adapter"
+        };
+        let event = self.expect_event(expected)?;
+        let input = match event.kind {
+            ParseEventKind::Scalar(ScalarValue::Bytes(bytes)) => {
+                if BORROW {
+                    match bytes {
+                        Cow::Borrowed(b) => OpaqueDeserialize::Borrowed(b),
+                        Cow::Owned(v) => OpaqueDeserialize::Owned(v),
+                    }
+                } else {
+                    OpaqueDeserialize::Owned(bytes.into_owned())
+                }
+            }
+            _ => {
+                return Err(self.mk_err(
+                    &wip,
+                    DeserializeErrorKind::UnexpectedToken {
+                        expected,
+                        got: event.kind_name().into(),
+                    },
+                ));
+            }
+        };
+
+        let adapter = *adapter;
+        #[allow(unsafe_code)]
+        let wip = unsafe {
+            wip.set_from_function(move |target| match (adapter.deserialize)(input, target) {
+                Ok(_) => Ok(()),
+                Err(message) => Err(ReflectErrorKind::OperationFailedOwned {
+                    shape,
+                    operation: format!("opaque adapter deserialize failed: {message}"),
+                }),
+            })?
+        };
+        Ok(wip)
+    }
+
+    #[inline(never)]
+    fn unsupported_opaque_pointer(
+        &self,
+        shape: &'static Shape,
+    ) -> Result<Partial<'input, BORROW>, DeserializeError> {
+        Err(DeserializeErrorKind::Unsupported {
+            message: format!(
+                "cannot deserialize opaque type {} - add a proxy to make it deserializable",
+                shape
+            )
+            .into(),
+        }
+        .with_span(self.last_span))
+    }
+
+    #[inline(never)]
+    fn unsupported_strategy(
+        &self,
+        shape: &'static Shape,
+    ) -> Result<Partial<'input, BORROW>, DeserializeError> {
+        Err(DeserializeErrorKind::Unsupported {
+            message: format!("unsupported deserialization strategy for {:?}", shape.def).into(),
+        }
+        .with_span(self.last_span))
+    }
+
+    #[inline(never)]
+    fn missing_strategy(
+        &self,
+        shape: &'static Shape,
+    ) -> Result<Partial<'input, BORROW>, DeserializeError> {
+        Err(DeserializeErrorKind::Unsupported {
+            message: format!(
+                "missing deserialization strategy for shape: {:?} (TypePlan bug)",
+                shape.def
+            )
+            .into(),
+        }
+        .with_span(self.last_span))
     }
 
     /// Deserialize a metadata container (like `Spanned<T>`, `Documented<T>`).
@@ -549,6 +575,12 @@ impl<'parser, 'input, const BORROW: bool> FormatDeserializer<'parser, 'input, BO
             ) {
                 let _ = self.expect_event("null or unit")?;
                 wip = wip.set_default()?;
+            } else if matches!(event.kind, ParseEventKind::OptionSome) {
+                let _ = self.expect_event("option some")?;
+                wip = wip
+                    .begin_some()?
+                    .with(|w| self.deserialize_value_recursive(w, opt_def.t))?
+                    .end()?;
             } else {
                 wip = self.deserialize_value_recursive(wip, opt_def.t)?;
             }
@@ -625,11 +657,17 @@ impl<'parser, 'input, const BORROW: bool> FormatDeserializer<'parser, 'input, BO
             let _ = self.expect_event("null or unit")?;
             // Set to None (default)
             wip = wip.set_default()?;
+        } else if matches!(event.kind, ParseEventKind::OptionSome) {
+            let _ = self.expect_event("option some")?;
+            wip = wip
+                .begin_some()?
+                .with(|w| self.deserialize_into_inner(w, MetaSource::FromEvents))?
+                .end()?;
         } else {
             // Some(value)
             wip = wip
                 .begin_some()?
-                .with(|w| self.deserialize_into(w, MetaSource::FromEvents))?
+                .with(|w| self.deserialize_into_inner(w, MetaSource::FromEvents))?
                 .end()?;
         }
         Ok(wip)
@@ -774,11 +812,7 @@ impl<'parser, 'input, const BORROW: bool> FormatDeserializer<'parser, 'input, BO
         let mut pending_field_name: Option<Cow<'input, str>> = None;
 
         // Read through the structure
-        loop {
-            let Ok(event) = self.expect_event("evidence") else {
-                break;
-            };
-
+        while let Ok(event) = self.expect_event("evidence") {
             match event.kind {
                 ParseEventKind::StructStart(_) => {
                     depth += 1;
@@ -841,7 +875,9 @@ impl<'parser, 'input, const BORROW: bool> FormatDeserializer<'parser, 'input, BO
                         });
                     }
                 }
-                ParseEventKind::OrderedField | ParseEventKind::VariantTag(_) => {}
+                ParseEventKind::OrderedField
+                | ParseEventKind::OptionSome
+                | ParseEventKind::VariantTag(_) => {}
             }
         }
 
@@ -888,11 +924,10 @@ impl<'parser, 'input, const BORROW: bool> FormatDeserializer<'parser, 'input, BO
             };
         }
 
-        // Fallback: element-by-element deserialization
-        // Hint to non-self-describing parsers that a sequence is expected
-        if self.is_non_self_describing() {
-            self.parser.hint_sequence();
-        }
+        // Fallback: element-by-element deserialization. Most self-describing
+        // parsers ignore this, but formats with ambiguous container syntax
+        // (for example Lua's `{}`) can use it to disambiguate empty sequences.
+        self.parser.hint_sequence();
 
         let event = self.expect_event("value")?;
         trace!(?event, "deserialize_list: got container start event");
@@ -971,11 +1006,10 @@ impl<'parser, 'input, const BORROW: bool> FormatDeserializer<'parser, 'input, BO
             }
         };
 
-        // Hint to non-self-describing parsers that a fixed-size array is expected
-        // (unlike hint_sequence, this doesn't read a length prefix)
-        if self.is_non_self_describing() {
-            self.parser.hint_array(array_len);
-        }
+        // Hint that a fixed-size array is expected. Most self-describing parsers
+        // ignore this, but formats with ambiguous container syntax can use it to
+        // disambiguate empty arrays.
+        self.parser.hint_array(array_len);
 
         let event = self.expect_event("value")?;
 
@@ -1035,10 +1069,10 @@ impl<'parser, 'input, const BORROW: bool> FormatDeserializer<'parser, 'input, BO
     ) -> Result<Partial<'input, BORROW>, DeserializeError> {
         let _guard = SpanGuard::new(self.last_span);
 
-        // Hint to non-self-describing parsers that a sequence is expected
-        if self.is_non_self_describing() {
-            self.parser.hint_sequence();
-        }
+        // Hint that a set is represented by a sequence. Most self-describing
+        // parsers ignore this, but formats with ambiguous container syntax can
+        // use it to disambiguate empty sets.
+        self.parser.hint_sequence();
 
         let event = self.expect_event("value")?;
 
@@ -1312,6 +1346,16 @@ impl<'parser, 'input, const BORROW: bool> FormatDeserializer<'parser, 'input, BO
         let shape = wip.shape();
 
         trace!(shape_name = %shape, shape_def = ?shape.def, ?key, ?meta, "deserialize_map_key");
+
+        let format_ns = self.parser.format_namespace();
+        let (next_wip, began_proxy) =
+            wip.begin_custom_deserialization_from_shape_with_format(format_ns)?;
+        if began_proxy {
+            return Ok(next_wip
+                .with(|w| self.deserialize_map_key(w, key, meta))?
+                .end()?);
+        }
+        wip = next_wip;
 
         // Handle metadata containers (like `Documented<T>` or `ObjectKey`): populate metadata and recurse into value
         if shape.is_metadata_container() {

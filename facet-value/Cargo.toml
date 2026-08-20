@@ -1,6 +1,6 @@
 [package]
 name = "facet-value"
-version = "0.50.0-rc.0"
+version = "0.50.0-rc.6"
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
@@ -20,7 +20,7 @@ alloc = ["facet-core/alloc", "facet-reflect/alloc", "dep:facet-reflect"]
 bolero-inline-tests = ["alloc"]
 
 [dependencies]
-facet-core = { workspace = true }
+facet-core.workspace = true
 facet-format = { workspace = true }
 facet-reflect = { workspace = true, optional = true }
 indexmap = { version = "2", optional = true }
@@ -29,8 +29,8 @@ indexmap = { version = "2", optional = true }
 bolero = { workspace = true }
 divan = { workspace = true }
 facet = { workspace = true, features = ["all-impls", "doc"] }
-facet-reflect = { workspace = true }
-facet-testhelpers = { workspace = true }
+facet-reflect.workspace = true
+facet-testhelpers.workspace = true
 indexmap = { workspace = true }
 kstring = "2"
 serde_json = { workspace = true }
