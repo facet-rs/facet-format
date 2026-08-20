@@ -1155,7 +1155,7 @@ dependencies = [
 
 [[package]]
 name = "facet-asn1"
-version = "0.50.0-rc.6"
+version = "0.50.0-rc.7"
 dependencies = [
  "facet",
  "facet-core",
@@ -1168,7 +1168,7 @@ dependencies = [
 
 [[package]]
 name = "facet-atom"
-version = "0.50.0-rc.6"
+version = "0.50.0-rc.7"
 dependencies = [
  "facet",
  "facet-testhelpers",
@@ -1179,7 +1179,7 @@ dependencies = [
 
 [[package]]
 name = "facet-cargo-toml"
-version = "0.50.0-rc.6"
+version = "0.50.0-rc.7"
 dependencies = [
  "camino",
  "datatest-stable",
@@ -1228,7 +1228,7 @@ dependencies = [
 
 [[package]]
 name = "facet-csv"
-version = "0.50.0-rc.6"
+version = "0.50.0-rc.7"
 dependencies = [
  "facet",
  "facet-core",
@@ -1249,7 +1249,7 @@ dependencies = [
 
 [[package]]
 name = "facet-dessert"
-version = "0.50.0-rc.6"
+version = "0.50.0-rc.7"
 dependencies = [
  "facet-core",
  "facet-reflect",
@@ -1257,7 +1257,7 @@ dependencies = [
 
 [[package]]
 name = "facet-dom"
-version = "0.50.0-rc.6"
+version = "0.50.0-rc.7"
 dependencies = [
  "facet-core",
  "facet-dessert",
@@ -1279,7 +1279,7 @@ dependencies = [
 
 [[package]]
 name = "facet-format"
-version = "0.50.0-rc.6"
+version = "0.50.0-rc.7"
 dependencies = [
  "ariadne",
  "facet-core",
@@ -1323,7 +1323,7 @@ dependencies = [
 
 [[package]]
 name = "facet-json"
-version = "0.50.0-rc.6"
+version = "0.50.0-rc.7"
 dependencies = [
  "axum-core",
  "bstr",
@@ -1363,7 +1363,7 @@ dependencies = [
 
 [[package]]
 name = "facet-json-schema"
-version = "0.50.0-rc.6"
+version = "0.50.0-rc.7"
 dependencies = [
  "facet",
  "facet-core",
@@ -1373,7 +1373,7 @@ dependencies = [
 
 [[package]]
 name = "facet-lua"
-version = "0.50.0-rc.6"
+version = "0.50.0-rc.7"
 dependencies = [
  "facet",
  "facet-core",
@@ -1431,7 +1431,7 @@ dependencies = [
 
 [[package]]
 name = "facet-msgpack"
-version = "0.50.0-rc.6"
+version = "0.50.0-rc.7"
 dependencies = [
  "axum-core",
  "codspeed-divan-compat",
@@ -1460,7 +1460,7 @@ dependencies = [
 
 [[package]]
 name = "facet-postcard"
-version = "0.50.0-rc.6"
+version = "0.50.0-rc.7"
 dependencies = [
  "axum-core",
  "bytestring",
@@ -1505,7 +1505,7 @@ dependencies = [
 
 [[package]]
 name = "facet-python"
-version = "0.50.0-rc.6"
+version = "0.50.0-rc.7"
 dependencies = [
  "chrono",
  "facet",
@@ -1528,7 +1528,7 @@ dependencies = [
 
 [[package]]
 name = "facet-singularize"
-version = "0.50.0-rc.6"
+version = "0.50.0-rc.7"
 dependencies = [
  "codspeed-divan-compat",
  "facet",
@@ -1553,7 +1553,7 @@ dependencies = [
 
 [[package]]
 name = "facet-svg"
-version = "0.50.0-rc.6"
+version = "0.50.0-rc.7"
 dependencies = [
  "datatest-stable",
  "facet",
@@ -1588,7 +1588,7 @@ dependencies = [
 
 [[package]]
 name = "facet-toml"
-version = "0.50.0-rc.6"
+version = "0.50.0-rc.7"
 dependencies = [
  "axum-core",
  "codspeed-divan-compat",
@@ -1614,7 +1614,7 @@ dependencies = [
 
 [[package]]
 name = "facet-typescript"
-version = "0.50.0-rc.6"
+version = "0.50.0-rc.7"
 dependencies = [
  "chrono",
  "facet",
@@ -1624,7 +1624,7 @@ dependencies = [
 
 [[package]]
 name = "facet-urlencoded"
-version = "0.50.0-rc.6"
+version = "0.50.0-rc.7"
 dependencies = [
  "axum-core",
  "facet",
@@ -1639,7 +1639,7 @@ dependencies = [
 
 [[package]]
 name = "facet-value"
-version = "0.50.0-rc.6"
+version = "0.50.0-rc.7"
 dependencies = [
  "bolero",
  "codspeed-divan-compat",
@@ -1655,7 +1655,7 @@ dependencies = [
 
 [[package]]
 name = "facet-xdr"
-version = "0.50.0-rc.6"
+version = "0.50.0-rc.7"
 dependencies = [
  "facet",
  "facet-core",
@@ -1666,7 +1666,7 @@ dependencies = [
 
 [[package]]
 name = "facet-xml"
-version = "0.50.0-rc.6"
+version = "0.50.0-rc.7"
 dependencies = [
  "axum-core",
  "facet",
@@ -1682,7 +1682,7 @@ dependencies = [
 
 [[package]]
 name = "facet-xml-node"
-version = "0.50.0-rc.6"
+version = "0.50.0-rc.7"
 dependencies = [
  "facet",
  "facet-core",
@@ -1694,7 +1694,7 @@ dependencies = [
 
 [[package]]
 name = "facet-yaml"
-version = "0.50.0-rc.6"
+version = "0.50.0-rc.7"
 dependencies = [
  "axum-core",
  "codspeed-divan-compat",
@@ -1720,7 +1720,7 @@ dependencies = [
 
 [[package]]
 name = "facet-zod"
-version = "0.50.0-rc.6"
+version = "0.50.0-rc.7"
 dependencies = [
  "facet",
  "facet-core",
