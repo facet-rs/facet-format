@@ -51,20 +51,20 @@ facet-reflect = "0.50.0-rc.6"
 facet-solver = "0.50.0-rc.6"
 facet-testhelpers = "0.50.0-rc.6"
 rediff = "0.50.0-rc.6"
-facet-dessert = { path = "facet-dessert", version = "0.50.0-rc.6" }
-facet-dom = { path = "facet-dom", version = "0.50.0-rc.6" }
-facet-format = { path = "facet-format", version = "0.50.0-rc.6" }
+facet-dessert = { path = "facet-dessert", version = "0.50.0-rc.7" }
+facet-dom = { path = "facet-dom", version = "0.50.0-rc.7" }
+facet-format = { path = "facet-format", version = "0.50.0-rc.7" }
 facet-format-suite = { path = "facet-format-suite", version = "0.50.0-rc.0" }
-facet-json = { path = "facet-json", version = "0.50.0-rc.6" }
+facet-json = { path = "facet-json", version = "0.50.0-rc.7" }
 facet-json-classics = { path = "facet-json-classics", version = "0.50.0-rc.0" }
-facet-msgpack = { path = "facet-msgpack", version = "0.50.0-rc.6" }
-facet-postcard = { path = "facet-postcard", version = "0.50.0-rc.6" }
-facet-singularize = { path = "facet-singularize", version = "0.50.0-rc.6" }
-facet-toml = { path = "facet-toml", version = "0.50.0-rc.6" }
-facet-urlencoded = { path = "facet-urlencoded", version = "0.50.0-rc.6" }
-facet-value = { path = "facet-value", version = "0.50.0-rc.6" }
-facet-xml = { path = "facet-xml", version = "0.50.0-rc.6" }
-facet-yaml = { path = "facet-yaml", version = "0.50.0-rc.6" }
+facet-msgpack = { path = "facet-msgpack", version = "0.50.0-rc.7" }
+facet-postcard = { path = "facet-postcard", version = "0.50.0-rc.7" }
+facet-singularize = { path = "facet-singularize", version = "0.50.0-rc.7" }
+facet-toml = { path = "facet-toml", version = "0.50.0-rc.7" }
+facet-urlencoded = { path = "facet-urlencoded", version = "0.50.0-rc.7" }
+facet-value = { path = "facet-value", version = "0.50.0-rc.7" }
+facet-xml = { path = "facet-xml", version = "0.50.0-rc.7" }
+facet-yaml = { path = "facet-yaml", version = "0.50.0-rc.7" }
 taxon = "0.2.0-rc.5"
 cstree = { version = "0.14.0", features = ["derive"] }
 arborium = { version = "^2.4.5", default-features = false, features = [
