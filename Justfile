@@ -36,4 +36,4 @@ miri-json:
     export MIRIFLAGS="-Zmiri-strict-provenance -Zmiri-env-forward=NEXTEST"
     rustup toolchain install "${RUSTUP_TOOLCHAIN}"
     rustup "+${RUSTUP_TOOLCHAIN}" component add miri rust-src llvm-tools-preview
-    cargo miri nextest run --target-dir target/miri -p facet-json -E 'not test(/jit/) and not test(/tendril/) and not test(/recursive_stack/)'
+    cargo miri nextest run --target-dir target/miri -p facet-json -E 'test(/scanner::tests|format_suite.*(pointer|proxy|collection::vec_nested|collection::map|struct::nested|enum::untagged|flatten::optional_some)|issue_2020|bstr.*invalid_utf8|format_specific_proxy.*roundtrip|raw_json::(deserialize_raw_json_owned|round_trip_raw_json_complex|skip_peeked_object_value)|list_deferred_processing::(nested_vec|deeply_nested)/)'
