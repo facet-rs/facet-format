@@ -62,7 +62,7 @@ jobs:
           tool: just
 
       - name: Run Miri
-        run: just miri-json --no-fail-fast -E 'not test(/recursive_stack/)'
+        run: just miri-json
 
   msrv:
     runs-on: blacksmith-2vcpu-ubuntu-2404
