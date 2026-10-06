@@ -24,9 +24,10 @@
 //! ```
 //!
 //! The deserializer tracks `last_span` which is updated after consuming each event.
-//! When constructing errors manually, always use `self.last_span`. The `SpanGuard`
-//! RAII type sets a thread-local span that the `From<ReflectError>` impl uses
-//! automatically.
+//! When constructing an error about a consumed event, use `self.last_span`.
+//! For an event that was only peeked, use that event's span instead: `last_span`
+//! still belongs to the previous consumed event. The `SpanGuard` RAII type sets a
+//! thread-local span that the `From<ReflectError>` impl uses automatically.
 //!
 //! ### Always Include a Path
 //!

@@ -196,7 +196,7 @@ impl<'parser, 'input, const BORROW: bool> FormatDeserializer<'parser, 'input, BO
 
             // No fallback available - error
             return Err(DeserializeError {
-                span: Some(self.last_span),
+                span: Some(event.span),
                 path: Some(wip.path()),
                 kind: DeserializeErrorKind::UnexpectedToken {
                     expected: "known enum variant",
@@ -2383,5 +2383,84 @@ fn infer_fixed_sequence_arity_for_variant(variant: &'static facet_core::Variant)
             }
             _ => None,
         },
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::collections::VecDeque;
+
+    use facet::Facet;
+    use facet_reflect::Span;
+
+    use crate::{
+        DeserializeErrorKind, FormatDeserializer, FormatParser, ParseError, ParseEvent,
+        ParseEventKind, SavePoint, ScalarValue,
+    };
+
+    struct EventParser(VecDeque<ParseEvent<'static>>);
+
+    #[derive(Debug, Facet)]
+    #[repr(u8)]
+    #[facet(rename_all = "kebab-case")]
+    enum OutputFormat {
+        FacetPretty,
+    }
+
+    impl FormatParser<'static> for EventParser {
+        fn next_event(&mut self) -> Result<Option<ParseEvent<'static>>, ParseError> {
+            Ok(self.0.pop_front())
+        }
+
+        fn peek_event(&mut self) -> Result<Option<ParseEvent<'static>>, ParseError> {
+            Ok(self.0.front().cloned())
+        }
+
+        fn skip_value(&mut self) -> Result<(), ParseError> {
+            unreachable!("this test does not skip values")
+        }
+
+        fn save(&mut self) -> SavePoint {
+            unreachable!("this test does not backtrack")
+        }
+
+        fn restore(&mut self, _: SavePoint) {
+            unreachable!("this test does not backtrack")
+        }
+    }
+
+    #[test]
+    fn unknown_scalar_enum_variant_reports_its_own_span() {
+        let previous_span = Span { offset: 14, len: 7 };
+        let invalid_span = Span { offset: 38, len: 5 };
+        let events = [
+            ParseEvent::new(
+                ParseEventKind::Scalar(ScalarValue::Str("browser".into())),
+                previous_span,
+            ),
+            ParseEvent::new(
+                ParseEventKind::Scalar(ScalarValue::Str("facet".into())),
+                invalid_span,
+            ),
+        ];
+
+        for capacity in [1, super::super::DEFAULT_EVENT_BUFFER_SIZE] {
+            let mut parser = EventParser(events.clone().into());
+            let mut de = FormatDeserializer::with_buffer_capacity(&mut parser, capacity);
+            assert_eq!(de.deserialize::<String>().unwrap(), "browser");
+            let error = de.deserialize::<OutputFormat>().unwrap_err();
+
+            assert_eq!(error.span, Some(invalid_span));
+            assert!(
+                matches!(
+                    error.kind,
+                    DeserializeErrorKind::UnexpectedToken {
+                        expected: "known enum variant",
+                        ref got,
+                    } if got.as_ref() == "facet"
+                ),
+                "{error:?}"
+            );
+        }
     }
 }

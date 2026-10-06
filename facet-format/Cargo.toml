@@ -27,6 +27,7 @@ facet-solver.workspace = true
 ariadne = { version = "0.6", optional = true }
 
 [dev-dependencies]
+facet.workspace = true
 
 [features]
 default = []
