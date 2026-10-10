@@ -524,8 +524,11 @@ impl FormatSerializer for JsonSerializer {
                     #[cfg(feature = "fast")]
                     self.out
                         .extend_from_slice(zmij::Buffer::new().format(v).as_bytes());
+                    // `Debug` keeps the fractional part (`1.0`, not `1`), which
+                    // matches what the `fast` (zmij) path writes.
                     #[cfg(not(feature = "fast"))]
-                    self.out.extend_from_slice(v.to_string().as_bytes());
+                    self.out
+                        .extend_from_slice(alloc::format!("{v:?}").as_bytes());
                 }
             }
             ScalarValue::Str(s) => self.write_json_string(&s),
