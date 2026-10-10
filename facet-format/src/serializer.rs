@@ -2715,6 +2715,27 @@ where
         .map_err(SerializeError::Backend)
 }
 
+/// Reads a dynamic number as `i64` for an integer-typed target, accepting a
+/// float whose value is integral (dynamic values only report floats via `as_f64`).
+fn dynamic_as_i64(dynamic: facet_reflect::PeekDynamicValue<'_, '_>) -> Option<i64> {
+    dynamic.as_i64().or_else(|| {
+        let f = dynamic.as_f64()?;
+        // -2^63..2^63, the range where the cast below cannot saturate
+        const LIMIT: f64 = 9_223_372_036_854_775_808.0;
+        (f.fract() == 0.0 && (-LIMIT..LIMIT).contains(&f)).then_some(f as i64)
+    })
+}
+
+/// Unsigned counterpart of [`dynamic_as_i64`].
+fn dynamic_as_u64(dynamic: facet_reflect::PeekDynamicValue<'_, '_>) -> Option<u64> {
+    dynamic.as_u64().or_else(|| {
+        let f = dynamic.as_f64()?;
+        // 0..2^64, the range where the cast below cannot saturate
+        const LIMIT: f64 = 18_446_744_073_709_551_616.0;
+        (f.fract() == 0.0 && (0.0..LIMIT).contains(&f)).then_some(f as u64)
+    })
+}
+
 fn serialize_scalar_from_dynamic<S>(
     serializer: &mut S,
     dynamic: facet_reflect::PeekDynamicValue<'_, '_>,
@@ -2757,7 +2778,7 @@ where
                 .map_err(SerializeError::Backend)
         }
         ST::U8 | ST::U16 | ST::U32 | ST::U64 | ST::USize => {
-            let n = dynamic.as_u64().ok_or_else(|| {
+            let n = dynamic_as_u64(dynamic).ok_or_else(|| {
                 SerializeError::Unsupported(Cow::Borrowed("expected unsigned integer value"))
             })?;
             serializer
@@ -2765,7 +2786,7 @@ where
                 .map_err(SerializeError::Backend)
         }
         ST::U128 => {
-            let n = dynamic.as_u64().ok_or_else(|| {
+            let n = dynamic_as_u64(dynamic).ok_or_else(|| {
                 SerializeError::Unsupported(Cow::Borrowed("expected unsigned integer value"))
             })?;
             serializer
@@ -2773,7 +2794,7 @@ where
                 .map_err(SerializeError::Backend)
         }
         ST::I8 | ST::I16 | ST::I32 | ST::I64 | ST::ISize => {
-            let n = dynamic.as_i64().ok_or_else(|| {
+            let n = dynamic_as_i64(dynamic).ok_or_else(|| {
                 SerializeError::Unsupported(Cow::Borrowed("expected signed integer value"))
             })?;
             serializer
@@ -2781,7 +2802,7 @@ where
                 .map_err(SerializeError::Backend)
         }
         ST::I128 => {
-            let n = dynamic.as_i64().ok_or_else(|| {
+            let n = dynamic_as_i64(dynamic).ok_or_else(|| {
                 SerializeError::Unsupported(Cow::Borrowed("expected signed integer value"))
             })?;
             serializer

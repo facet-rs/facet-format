@@ -187,17 +187,27 @@ unsafe fn dyn_get_bool(value: PtrConst) -> Option<bool> {
     }
 }
 
+// The integer getters only answer for numbers stored as integers. A float
+// with an integral value (e.g. `1.0`) must be reported through `get_f64`,
+// otherwise serializers that probe i64/u64 first would write it as `1` and
+// lose the fact that it was a float.
 unsafe fn dyn_get_i64(value: PtrConst) -> Option<i64> {
     unsafe {
         let ptr = value.as_byte_ptr() as *const Value;
-        (*ptr).as_number().and_then(|n| n.to_i64())
+        (*ptr)
+            .as_number()
+            .filter(|n| n.is_integer())
+            .and_then(|n| n.to_i64())
     }
 }
 
 unsafe fn dyn_get_u64(value: PtrConst) -> Option<u64> {
     unsafe {
         let ptr = value.as_byte_ptr() as *const Value;
-        (*ptr).as_number().and_then(|n| n.to_u64())
+        (*ptr)
+            .as_number()
+            .filter(|n| n.is_integer())
+            .and_then(|n| n.to_u64())
     }
 }
 
